@@ -1283,6 +1283,7 @@
                 appLoader.classList.add('hidden');
             document.body.style.overflow = 'auto';
             profileScreen.style.display = 'none';
+            window.scrollTo(0, 0);
             }
             // If we're still on the logo, show some feedback unconditionally after timeout
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {

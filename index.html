@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AdamStream - Premium Cinematic Experience</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
@@ -352,6 +352,28 @@
             color: #000;
             border-color: #fff;
             box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+        }/* --- MOBILE REFRESH RULES --- */
+        @media (max-width: 768px) {
+            /* Makes posters smaller so they fit on the screen */
+            .movie-card {
+                width: 45% !important; 
+                margin: 5px !important;
+                flex-shrink: 0;
+            }
+            /* Shrinks the giant top banner */
+            .hero-section, #hero {
+                min-height: 50vh !important;
+                height: 50vh !important;
+            }
+            /* Fixes the title size so it's not huge */
+            #hero-title {
+                font-size: 2rem !important;
+                line-height: 1 !important;
+            }
+            /* Hides the desktop menu that overlaps everything */
+            .hidden.lg\:flex {
+                display: none !important;
+            }
         }
     </style>
 </head>
