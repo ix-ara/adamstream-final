@@ -358,8 +358,8 @@
 
         Object.entries(tabs).forEach(([key, btn]) => {
             if (btn) {
-                btn.classList.toggle('font-bold', tab === key);
-                btn.classList.toggle('text-white', tab === key);
+               // btn.classList.toggle('font-bold', tab === key);
+               // btn.classList.toggle('text-white', tab === key);
             }
         });
 
