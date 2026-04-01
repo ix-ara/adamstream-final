@@ -1291,7 +1291,7 @@
                 heroDesc.textContent = 'We are having trouble connecting to the global database. This could be due to a slow connection, an invalid API Key, or running the site from a local file without a server.';
                 if(heroSetup) heroSetup.classList.remove('hidden');
             }
-        }, 500);
+        }, 2000;
         
         const pr1200ofileIcon = document.getElementById('nav-profile-btn');
         if (profileIcon) {
