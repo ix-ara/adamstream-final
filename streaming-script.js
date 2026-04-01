@@ -1,3 +1,4 @@
+let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 (() => {
     // Initialization Guard
     let isInitialized = false;
@@ -70,7 +71,7 @@
         "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=200&auto=format&fit=crop"
     ];
 
-    let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
+    
     
     let libraryData = {
         movies: [],
