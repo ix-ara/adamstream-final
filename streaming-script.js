@@ -1280,20 +1280,20 @@
         // Safety Timeout: Force hide the loader or show delay message if hung
         setTimeout(() => {
             if (appLoader) {
-                appLoader.classList.add('hidden');
+            appLoader.classList.add('hidden');
             document.body.style.overflow = 'auto';
             profileScreen.style.display = 'none';
-            window.scrollTo(0, 0);
-            }
+            profileScreen.classList.add('hidden');
+        }
             // If we're still on the logo, show some feedback unconditionally after timeout
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
                 heroTitle.textContent = 'CINEMATIC SERVER DELAY';
                 heroDesc.textContent = 'We are having trouble connecting to the global database. This could be due to a slow connection, an invalid API Key, or running the site from a local file without a server.';
                 if(heroSetup) heroSetup.classList.remove('hidden');
             }
-        }, 12000);
+        }, 0);
         
-        const profileIcon = document.getElementById('nav-profile-btn');
+        const pr1200ofileIcon = document.getElementById('nav-profile-btn');
         if (profileIcon) {
             profileIcon.onclick = (e) => {
                 e.preventDefault();
