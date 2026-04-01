@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>AdamStream - Premium Cinematic Experience</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "netflix-red": "#E50914",
+                        "netflix-black": "#141414",
+                        "netflix-dark": "#181818",
+                        "surface": "#141414",
+                        "primary": "#E50914",
+                        "on-surface": "#e5e2e1"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"]
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.4s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            background-color: #141414;
+            color: #ffffff;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #333 transparent;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .hero-gradient {
+            background: linear-gradient(77deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.2) 85%),
+                linear-gradient(to top, rgba(20, 20, 20, 1) 0%, rgba(20, 20, 20, 0) 25%);
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .movie-card:hover .card-details {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .modal-blur {
+            backdrop-filter: blur(8px);
+        }
+
+        .animate-pop-in {
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+            0% {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .row-animate {
+            opacity: 0;
+            transform: translateX(20px);
+            transition: all 0.6s ease-out;
+        }
+
+        .row-animate.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .loader-ring {
+            display: inline-block;
+            width: 80px;
+            height: 80px;
+        }
+
+        .loader-ring:after {
+            content: " ";
+            display: block;
+            width: 64px;
+            height: 64px;
+            margin: 8px;
+            border-radius: 50%;
+            border: 6px solid #E50914;
+            border-color: #E50914 transparent #E50914 transparent;
+            animation: loader-ring 1.2s linear infinite;
+        }
+
+        @keyframes loader-ring {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .grain-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("https://grainy-gradients.vercel.app/noise.svg");
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 250;
+            /* Below video-overlay but above main content */
+        }
+
+        .shadow-glow:hover {
+            box-shadow: 0 0 20px 5px rgba(229, 9, 20, 0.4);
+        }
+
+        /* Premium Profile Selection Upgrade */
+        #profile-screen {
+            background: #000;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        /* Animated Mesh Background */
+        .mesh-bg {
+            position: absolute;
+            inset: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(circle at 30% 30%, rgba(229, 9, 20, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 70% 60%, rgba(60, 0, 180, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 1) 0%, #000 100%);
+            filter: blur(80px);
+            animation: mesh-rotate 30s linear infinite;
+            z-index: 0;
+            opacity: 0.6;
+        }
+
+        /* Sorani (Kurdish) Subtitle & RTL Support */
+        video::cue,
+        .kurdish-cue {
+            direction: rtl !important;
+            unicode-bidi: embed !important;
+            font-size: 24px !important;
+            font-family: 'Noto Sans Arabic', 'Tahoma', sans-serif !important;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #player-sub-btn.active {
+            color: #E50914;
+            text-shadow: 0 0 10px rgba(229, 9, 20, 0.5);
+        }
+
+        @keyframes mesh-rotate {
+            0% {
+                transform: rotate(0deg) scale(1);
+            }
+
+            50% {
+                transform: rotate(180deg) scale(1.1);
+            }
+
+            100% {
+                transform: rotate(360deg) scale(1);
+            }
+        }
+
+        /* Global App Loader */
+        #app-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 5000;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.8s ease, visibility 0.8s;
+        }
+
+        #app-loader.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .loader-bar {
+            width: 200px;
+            height: 2px;
+            background: rgba(229, 9, 20, 0.2);
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        .loader-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 40%;
+            background: #E50914;
+            box-shadow: 0 0 15px #E50914;
+            animation: loader-slide 1.5s infinite ease-in-out;
+        }
+
+        @keyframes loader-slide {
+            0% {
+                left: -40%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
+
+        #profile-screen .relative.z-10 {
+            z-index: 20;
+        }
+
+        .profile-card {
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                filter 0.5s ease,
+                opacity 0.6s ease;
+            position: relative;
+        }
+
+        /* Focus Mode: Dim others on hover */
+        #profiles-list:hover .profile-card:not(:hover) {
+            opacity: 0.4;
+            filter: grayscale(0.5) blur(2px);
+            transform: scale(0.95);
+        }
+
+        .profile-card:hover img,
+        .profile-card:focus img {
+            box-shadow: 0 0 50px 5px rgba(229, 9, 20, 0.5);
+            transform: translateY(-15px) scale(1.12);
+            filter: brightness(1.2) contrast(1.1);
+            outline: 3px solid rgba(255, 255, 255, 0.9);
+            outline-offset: 4px;
+        }
+
+        .profile-card.managing img {
+            filter: brightness(0.2) blur(4px) grayscale(0.8);
+        }
+
+        .edit-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform: scale(0.4) rotate(-20deg);
+        }
+
+        .profile-card.managing .edit-overlay {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+        }
+
+        .avatar-option {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+        }
+
+        .avatar-option:hover {
+            transform: scale(1.15) translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .avatar-option.selected {
+            border: 4px solid #E50914;
+            box-shadow: 0 0 30px rgba(229, 9, 20, 0.8);
+            transform: scale(1.05);
+        }
+
+        #profile-headline {
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+            background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        .premium-ghost-btn {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #888;
+            transition: all 0.4s ease;
+        }
+
+        .premium-ghost-btn:hover {
+            background: rgba(255, 255, 255, 1);
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+
+<body class="selection:bg-netflix-red/30 overflow-x-hidden">
+    <!-- App Initialization Loader -->
+    <div id="app-loader">
+        <h1 class="text-3xl font-black tracking-tighter text-netflix-red mb-8 animate-pulse">ADAMSTREAM</h1>
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
+        </div>
+        <p class="mt-4 text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em]">Connecting to Cinematic Servers
+        </p>
+    </div>
+
+    <div class="grain-overlay"></div>
+
+    <!-- Who's Watching Screen -->
+    <div id="profile-screen"
+        class="fixed inset-0 transition-opacity duration-700 bg-netflix-black flex flex-col items-center overflow-y-auto pt-20 pb-20 pointer-events-auto">
+        <div class="mesh-bg"></div>
+        <div class="relative z-10 w-full max-w-6xl px-4 animate-fade-in flex flex-col items-center">
+            <h1 id="profile-headline"
+                class="text-3xl md:text-7xl text-white font-black mb-12 md:mb-20 tracking-tighter uppercase font-headline">
+                Who's watching?</h1>
+
+            <div id="profiles-list" class="flex flex-wrap justify-center gap-8 md:gap-14">
+                <!-- Profiles will be injected here -->
+            </div>
+
+            <div class="mt-20 md:mt-32 flex flex-col items-center gap-10">
+                <button id="manage-profiles-btn"
+                    class="px-10 py-3 premium-ghost-btn uppercase tracking-[0.3em] transition-all font-black text-xs md:text-sm bg-transparent focus:outline-none hover:scale-110 active:scale-95">Manage
+                    Profiles</button>
+                <button id="done-managing-btn"
+                    class="hidden px-12 py-4 bg-white text-black uppercase tracking-[0.3em] font-black text-sm hover:bg-zinc-200 transition-all hover:scale-110 active:scale-95 shadow-[0_0_40px_rgba(255,255,255,0.3)]">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Edit/Add Modal -->
+    <div id="profile-modal"
+        class="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300 backdrop-blur-sm">
+        <div
+            class="bg-netflix-dark p-8 md:p-12 rounded-lg max-w-2xl w-full border border-zinc-800 shadow-2xl animate-pop-in">
+            <h2 id="modal-profile-title"
+                class="text-4xl font-black text-white mb-8 border-b border-zinc-800 pb-4 uppercase tracking-tighter">
+                Edit Profile</h2>
+
+            <div class="flex flex-col md:flex-row gap-10">
+                <div class="flex flex-col items-center gap-4">
+                    <img id="modal-avatar-preview" src=""
+                        class="w-32 h-32 md:w-40 md:h-40 rounded-md object-cover shadow-2xl border-2 border-transparent">
+                    <p class="text-[10px] text-zinc-500 uppercase font-black tracking-widest">Select Avatar Below</p>
+                </div>
+
+                <div class="flex-1 space-y-8">
+                    <div class="space-y-2">
+                        <label for="profile-name-input"
+                            class="text-zinc-500 text-xs font-black uppercase tracking-widest">Profile Name</label>
+                        <input type="text" id="profile-name-input" placeholder="Enter name"
+                            class="w-full bg-zinc-800 border-0 rounded p-4 text-xl text-white focus:ring-2 focus:ring-netflix-red outline-none">
+                    </div>
+
+                    <div class="space-y-4">
+                        <p class="text-zinc-500 text-xs font-black uppercase tracking-widest">Choose Your Icon</p>
+                        <div id="avatar-picker"
+                            class="grid grid-cols-4 md:grid-cols-5 gap-3 max-h-[200px] overflow-y-auto no-scrollbar pb-4 pr-1">
+                            <!-- Avatars injected here -->
+                        </div>
+                    </div>
+
+                    <div id="delete-profile-container" class="hidden pt-4 border-t border-zinc-800">
+                        <button id="delete-profile-btn"
+                            class="flex items-center gap-2 text-zinc-600 hover:text-netflix-red transition-colors font-bold text-sm uppercase tracking-widest">
+                            <span class="material-symbols-outlined">delete</span> Delete Profile
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-4 mt-12 pt-8 border-t border-zinc-800">
+                <button id="cancel-profile-btn"
+                    class="px-8 py-3 bg-transparent border border-zinc-600 text-zinc-500 hover:text-white hover:border-white transition-all font-black text-xs uppercase tracking-widest">Cancel</button>
+                <button id="save-profile-btn"
+                    class="px-10 py-3 bg-white text-black hover:bg-netflix-red hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-xl">Save
+                    Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium Navigation -->
+    <nav id="main-nav"
+        class="fixed top-0 w-full z-[100] px-4 md:px-12 py-3 md:py-4 flex items-center justify-between transition-all duration-500 bg-transparent">
+        <div class="flex items-center gap-4 md:gap-10">
+            <h1 id="nav-logo"
+                class="text-2xl md:text-3xl font-black tracking-tighter text-netflix-red cursor-pointer hover:scale-105 transition-transform shrink-0">
+                ADAMSTREAM</h1>
+            <div class="hidden lg:flex items-center gap-6 text-sm font-medium text-zinc-300">
+                <button id="home-btn"
+                    class="hover:text-white transition-colors flex items-center gap-1 font-bold text-white">
+                    <span class="material-symbols-outlined text-lg">home</span> Home
+                </button>
+                <button id="tv-nav-btn" class="hover:text-white transition-colors">TV Shows</button>
+                <button id="kdrama-nav-btn" class="hover:text-white transition-colors">K-Dramas</button>
+                <button id="movies-nav-btn" class="hover:text-white transition-colors">Movies</button>
+                <button id="popular-nav-btn" class="hover:text-white transition-colors">New & Popular</button>
+                <button id="mylist-nav-btn" class="hover:text-white transition-colors">My List</button>
+            </div>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="relative group">
+                <button type="button" class="material-symbols-outlined text-white text-2xl mt-1"
+                    aria-label="Search">search</button>
+                <input id="search-input" type="text" placeholder="Titles, genres..."
+                    class="absolute right-0 top-1/2 -translate-y-1/2 w-0 group-hover:w-64 focus:w-64 transition-all duration-300 bg-black/80 border border-zinc-700 py-1.5 px-10 rounded-sm opacity-0 group-hover:opacity-100 focus:opacity-100 text-sm outline-none">
+            </div>
+            <button type="button" class="material-symbols-outlined text-white text-2xl"
+                aria-label="Notifications">notifications</button>
+            <div id="nav-profile-btn"
+                class="w-8 h-8 rounded cursor-pointer overflow-hidden border-2 border-transparent hover:border-white transition-all shadow-glow">
+                <img id="nav-profile-img"
+                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop"
+                    alt="Profile">
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Dynamic Hero Section -->
+        <section id="hero"
+            class="relative min-h-[85vh] w-full flex flex-col justify-center items-start px-4 md:px-12 pb-32 overflow-hidden">
+            <div class="absolute inset-0 z-0">
+                <img id="hero-bg"
+                    src="https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000&auto=format&fit=crop"
+                    class="w-full h-full object-cover animate-fade-in" alt="Hero">
+                <div class="absolute inset-0 hero-gradient"></div>
+            </div>
+            <div id="hero-content-wrap"
+                class="relative z-10 max-w-2xl animate-slide-up transition-opacity duration-700">
+                <div class="flex items-center gap-2 mb-4">
+                    <span
+                        class="bg-netflix-red text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm">Original</span>
+                </div>
+                <h2 id="hero-title" class="text-4xl md:text-7xl font-black mb-4 tracking-tighter">LOADING CONTENT</h2>
+                <p id="hero-desc" class="text-lg text-zinc-200 mb-8 line-clamp-3">Preparing your premium cinematic
+                    experience. Please wait while we synchronize with the global database...</p>
+                <div class="flex items-center gap-4">
+                    <button id="hero-play"
+                        class="bg-white text-black px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-zinc-200 transition-colors">
+                        <span class="material-symbols-outlined fill"
+                            style="font-variation-settings: 'FILL' 1;">play_arrow</span> Play
+                    </button>
+                    <button id="hero-info"
+                        class="bg-zinc-500/50 text-white px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-zinc-500/30 transition-colors backdrop-blur-md">
+                        <span class="material-symbols-outlined">info</span> More Info
+                    </button>
+                    <button id="hero-setup"
+                        class="hidden bg-netflix-red text-white px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-red-700 transition-colors shadow-lg">
+                        <span class="material-symbols-outlined">settings</span> Setup API
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Rows Container -->
+        <div id="content-rows" class="relative z-20 -mt-32 pb-20 space-y-12">
+            <!-- Rows will be injected here by JS -->
+        </div>
+    </main>
+
+    <!-- Detail Modal Overlay -->
+    <div id="detail-modal"
+        class="fixed inset-0 z-[200] opacity-0 pointer-events-none transition-all duration-300 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 modal-blur"></div>
+        <div id="modal-content"
+            class="relative bg-netflix-dark w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl transform scale-95 transition-transform duration-300 no-scrollbar">
+            <button id="close-modal"
+                class="absolute top-4 right-4 z-50 bg-black/50 text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-black/80 transition-colors border border-white/20">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <div class="h-[250px] md:h-[350px] relative w-full">
+                <img id="modal-image" src="" class="w-full h-full object-cover" alt="">
+                <div class="absolute inset-0 bg-gradient-to-t from-netflix-dark via-transparent to-transparent"></div>
+                <div class="absolute bottom-10 left-10 right-10">
+                    <h3 id="modal-title" class="text-4xl font-black mb-4 tracking-tighter"></h3>
+                    <div class="flex items-center gap-4 mb-6">
+                        <button id="modal-play"
+                            class="bg-netflix-red text-white px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-red-700 transition-colors">
+                            <span class="material-symbols-outlined fill"
+                                style="font-variation-settings: 'FILL' 1;">play_arrow</span> Play
+                        </button>
+                        <button id="modal-add-list" type="button"
+                            class="bg-white/10 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/30"
+                            aria-label="Add to list">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
+                        <button type="button"
+                            class="bg-white/10 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/30"
+                            aria-label="Rate this title">
+                            <span class="material-symbols-outlined">thumb_up</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="p-10 grid grid-cols-1 md:grid-cols-3 gap-10">
+                <div class="md:col-span-2 space-y-8">
+                    <div class="flex items-center gap-3 text-sm font-bold text-zinc-400">
+                        <span id="modal-year"></span>
+                        <span id="modal-rating" class="border border-zinc-600 px-1 rounded text-[10px]"></span>
+                        <span id="modal-duration"></span>
+                        <span class="text-netflix-red">4K Ultra HD</span>
+                    </div>
+                    <p id="modal-desc" class="text-lg text-zinc-200 leading-relaxed"></p>
+
+                    <!-- Episodes Section (Dynamic) -->
+                    <div id="episodes-section" class="hidden animate-slide-up">
+                        <div class="flex items-center justify-between mb-4 border-b border-zinc-800 pb-2">
+                            <h4 class="text-xl font-bold">Episodes</h4>
+                            <div class="flex items-center gap-3">
+                                <label for="season-select"
+                                    class="text-zinc-500 text-xs uppercase tracking-wider">Season</label>
+                                <select id="season-select"
+                                    class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm">
+                                </select>
+                            </div>
+                        </div>
+                        <div id="episodes-list" class="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar">
+                            <!-- Episodes injected here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="text-sm text-zinc-400">
+                        <span class="font-bold">Cast:</span> <span id="modal-cast" class="text-zinc-200"></span>
+                    </div>
+                    <div class="text-sm text-zinc-400">
+                        <span class="font-bold">Genres:</span> <span id="modal-genre" class="text-zinc-200"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="video-overlay"
+        class="fixed inset-0 z-[300] bg-black opacity-0 pointer-events-none transition-all duration-500 flex flex-col">
+        <button id="exit-player"
+            class="absolute top-10 left-10 z-[310] flex items-center gap-2 text-white hover:text-netflix-red transition-colors font-bold group bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">
+            <span
+                class="material-symbols-outlined text-2xl group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            Back to Browse
+        </button>
+
+        <!-- Player Episode Selector -->
+        <div id="player-episode-selector"
+            class="absolute top-10 right-10 z-[310] hidden items-center gap-3 bg-black/60 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
+            <!-- Server Switcher -->
+            <div class="flex items-center gap-1.5 mr-3 pr-3 border-r border-white/10">
+                <span class="text-[10px] text-zinc-500 font-black uppercase tracking-tighter mr-1">Server</span>
+                <div id="server-switcher" class="flex items-center gap-1">
+                    <button data-server="alpha"
+                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-netflix-red text-white uppercase transition-all">Alpha</button>
+                    <button data-server="delta"
+                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-white uppercase transition-all">Delta</button>
+                    <button data-server="prime"
+                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-white uppercase transition-all">Prime</button>
+                    <button data-server="legacy"
+                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-white uppercase transition-all">Legacy</button>
+                </div>
+            </div>
+
+            <span class="text-zinc-300 text-xs font-bold uppercase tracking-wider">EPISODES</span>
+            <select id="player-season-select"
+                class="bg-zinc-900 text-white text-sm border border-zinc-700 rounded px-2 py-1 outline-none cursor-pointer font-bold">
+            </select>
+            <span class="text-zinc-500 font-bold">/</span>
+            <select id="player-episode-select"
+                class="bg-zinc-900 text-white text-sm border border-zinc-700 rounded px-2 py-1 outline-none cursor-pointer font-bold">
+            </select>
+            <button id="player-sub-btn"
+                class="material-symbols-outlined text-zinc-400 hover:text-white transition-all ml-2"
+                title="Kurdish Subtitles">subtitles</button>
+            <!-- Sub/Dub toggle - only visible for anime -->
+            <div id="player-dub-toggle"
+                class="hidden items-center gap-1 ml-1 bg-zinc-800 rounded-full p-0.5 border border-zinc-700">
+                <button id="btn-sub"
+                    class="text-xs font-black px-3 py-1 rounded-full bg-netflix-red text-white transition-all uppercase">Sub</button>
+                <button id="btn-dub"
+                    class="text-xs font-black px-3 py-1 rounded-full text-zinc-400 hover:text-white transition-all uppercase">Dub</button>
+            </div>
+        </div>
+
+        <div id="dub-hint" class="hidden absolute inset-0 z-[320] items-center justify-center pointer-events-none">
+            <div
+                class="bg-zinc-900/95 border border-zinc-600 rounded-2xl px-8 py-6 max-w-sm text-center shadow-2xl backdrop-blur-md pointer-events-none">
+                <span class="material-symbols-outlined text-4xl text-netflix-red mb-3 block">translate</span>
+                <h3 class="text-white font-black text-lg mb-2 uppercase">Switching to English DUB</h3>
+                <p class="text-zinc-400 text-sm leading-relaxed">Loading English dubbed source. If the episode shows
+                    "Not Found", this anime may not have an English dub available yet.</p>
+                <p class="text-zinc-600 text-xs mt-3 uppercase">Switch back to SUB for guaranteed playback.</p>
+            </div>
+        </div>
+
+        <!-- Buffering Overlay - starts hidden, shown only during load -->
+        <div id="player-loader"
+            class="absolute inset-0 z-[305] bg-black flex flex-col items-center justify-center transition-opacity duration-500 opacity-0 pointer-events-none">
+            <div class="loader-ring"></div>
+            <p id="player-loader-text" class="mt-4 text-zinc-400 font-bold tracking-widest text-sm uppercase">Optimizing
+                Stream...</p>
+        </div>
+
+        <div class="flex-1 flex flex-col items-center justify-center relative overflow-hidden z-0">
+            <!-- Skip Intro Button -->
+            <button id="skip-intro"
+                class="absolute bottom-40 right-0 z-[310] bg-zinc-800/80 hover:bg-zinc-700 text-white px-8 py-3 rounded-l-sm border border-zinc-600 transition-all translate-x-full opacity-0 pointer-events-none">
+                Skip Intro
+            </button>
+
+            <!-- Next Episode Card -->
+            <div id="next-up"
+                class="absolute bottom-40 right-10 z-[310] bg-zinc-900 border border-zinc-700 p-4 rounded shadow-2xl transition-all translate-y-10 opacity-0 pointer-events-none max-w-xs">
+                <p class="text-zinc-500 text-[10px] font-bold uppercase mb-2">Next Up</p>
+                <div class="flex gap-4">
+                    <img id="next-up-img" src="" class="w-20 h-12 object-cover rounded" alt="Next up preview">
+                    <div>
+                        <h5 id="next-up-title" class="text-sm font-bold truncate"></h5>
+                        <button id="play-next" class="text-netflix-red text-xs font-bold mt-1">Play Now</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real Video Player API -->
+            <div class="w-full h-full relative z-0">
+                <iframe id="player-iframe" class="w-full h-full border-0 bg-black relative z-0"
+                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen="true"
+                    webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
+                <div class="absolute top-28 left-10 z-[309] bg-black/40 px-4 py-2 rounded-md border border-white/20 pointer-events-none transition-opacity duration-300"
+                    id="player-title-overlay">
+                    <p class="text-xs text-zinc-300 uppercase tracking-[0.2em]">Now streaming</p>
+                    <p id="player-title" class="text-base text-white uppercase tracking-wider font-black"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TMDB API Key Prompt -->
+    <div id="api-key-modal"
+        class="fixed inset-0 z-[10000] bg-black/90 hidden items-center justify-center transition-all duration-500 opacity-0 pointer-events-none">
+        <div class="bg-netflix-dark border border-zinc-700 p-8 rounded-xl max-w-md w-full shadow-2xl">
+            <h2 class="text-2xl font-bold mb-4">AdamStream Setup</h2>
+            <p class="text-zinc-400 mb-6 text-sm">To access the live cinematic database of new Anime, Movies, and
+                Dramas, please provide your free TMDB API Key.</p>
+            <input type="text" id="tmdb-api-input" placeholder="Enter TMDB API Key..."
+                class="w-full bg-black border border-zinc-600 rounded px-4 py-3 text-white focus:outline-none focus:border-netflix-red mb-6">
+            <div class="flex justify-end gap-4">
+                <a href="https://www.themoviedb.org/settings/api" target="_blank"
+                    class="text-zinc-400 text-sm hover:text-white mt-3">Get Key</a>
+                <button id="save-api-btn"
+                    class="bg-netflix-red hover:bg-red-700 text-white font-bold py-2 px-6 rounded transition-colors">Save
+                    & Load</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Network Status -->
+    <div id="network-status"
+        class="fixed bottom-10 right-10 z-[500] px-6 py-3 rounded-full text-sm font-bold shadow-2xl opacity-0 translate-y-10 transition-all duration-500 bg-emerald-600 text-white">
+        Online: connected to internet
+    </div>
+
+    <script src="streaming-script.js?v=2" defer></script>
+</body>
+
+</html>
