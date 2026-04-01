@@ -1281,6 +1281,7 @@
         setTimeout(() => {
             if (appLoader) {
                 appLoader.classList.add('hidden');
+            document.body.style.overflow = 'auto';
             }
             // If we're still on the logo, show some feedback unconditionally after timeout
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
