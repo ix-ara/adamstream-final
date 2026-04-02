@@ -653,7 +653,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
         // Update Nav Avatar
         const navAvatar = document.getElementById('nav-profile-img');
+        const navAvatarMobile = document.getElementById('nav-profile-img-mobile');
         if (navAvatar) navAvatar.src = p.avatar;
+        if (navAvatarMobile) navAvatarMobile.src = p.avatar;
 
         // Cinematic Exit
         profileScreen.style.transform = 'scale(1.1)';
@@ -1323,12 +1325,15 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }, 8000);
         
         const profileIcon = document.getElementById('nav-profile-btn');
-        if (profileIcon) {
-            profileIcon.onclick = (e) => {
-                e.preventDefault();
-                switchToProfileSelector();
-            };
-        }
+        const profileIconMobile = document.getElementById('nav-profile-btn-mobile');
+        
+        const openSelector = (e) => {
+            e.preventDefault();
+            switchToProfileSelector();
+        };
+
+        if (profileIcon) profileIcon.onclick = openSelector;
+        if (profileIconMobile) profileIconMobile.onclick = openSelector;
 
         const subBtn = document.getElementById('player-sub-btn');
         if (subBtn) {
