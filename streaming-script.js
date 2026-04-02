@@ -113,9 +113,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
     };
 
-    // Anime-specific server - SUB = Japanese audio (original), DUB = English dubbed
+    // Multiple anime sub sources - cycle through if one plays wrong language
+    const SUB_SOURCES = [
+        (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
+        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
+        (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
+        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`
+    ];
+    let currentSubSourceIdx = 0;
+
     const ANIME_SERVER = {
-        sub: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
+        sub: (id, s, e) => SUB_SOURCES[currentSubSourceIdx % SUB_SOURCES.length](id, s, e),
         dub: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`
     };
 
@@ -863,13 +871,21 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     // Sub/Dub toggle handlers
     if (btnSub) {
         btnSub.addEventListener('click', () => {
-            animeDubMode = false;
+            if (!animeDubMode) {
+                // Already on sub - cycle to next sub source
+                currentSubSourceIdx = (currentSubSourceIdx + 1) % SUB_SOURCES.length;
+                btnSub.textContent = `SUB ${currentSubSourceIdx + 1}`;
+            } else {
+                animeDubMode = false;
+                currentSubSourceIdx = 0;
+                btnSub.textContent = 'SUB';
+            }
             btnSub.classList.add('bg-netflix-red', 'text-white');
             btnSub.classList.remove('text-zinc-400');
             btnDub.classList.remove('bg-netflix-red', 'text-white');
             btnDub.classList.add('text-zinc-400');
             if (dubHint) dubHint.classList.add('hidden');
-            // Reload stream
+            // Reload stream with new source
             if (currentPlayingItem) {
                 const s = playerSeasonSelect ? Number(playerSeasonSelect.value) : 1;
                 const e = playerEpisodeSelect ? Number(playerEpisodeSelect.value) : 1;
