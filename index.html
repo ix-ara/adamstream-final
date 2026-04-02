@@ -403,79 +403,6 @@
 
     <div class="grain-overlay"></div>
 
-    <!-- Who's Watching Screen -->
-    <div id="profile-screen"
-        class="fixed inset-0 transition-opacity duration-700 bg-netflix-black flex flex-col items-center overflow-y-auto pt-20 pb-20 pointer-events-auto">
-        <div class="mesh-bg"></div>
-        <div class="relative z-10 w-full max-w-6xl px-4 animate-fade-in flex flex-col items-center">
-            <h1 id="profile-headline"
-                class="text-3xl md:text-7xl text-white font-black mb-12 md:mb-20 tracking-tighter uppercase font-headline">
-                Who's watching?</h1>
-
-            <div id="profiles-list" class="flex flex-wrap justify-center gap-8 md:gap-14">
-                <!-- Profiles will be injected here -->
-            </div>
-
-            <div class="mt-20 md:mt-32 flex flex-col items-center gap-10">
-                <button id="manage-profiles-btn"
-                    class="px-10 py-3 premium-ghost-btn uppercase tracking-[0.3em] transition-all font-black text-xs md:text-sm bg-transparent focus:outline-none hover:scale-110 active:scale-95">Manage
-                    Profiles</button>
-                <button id="done-managing-btn"
-                    class="hidden px-12 py-4 bg-white text-black uppercase tracking-[0.3em] font-black text-sm hover:bg-zinc-200 transition-all hover:scale-110 active:scale-95 shadow-[0_0_40px_rgba(255,255,255,0.3)]">Done</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Profile Edit/Add Modal -->
-    <div id="profile-modal"
-        class="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300 backdrop-blur-sm">
-        <div
-            class="bg-netflix-dark p-8 md:p-12 rounded-lg max-w-2xl w-full border border-zinc-800 shadow-2xl animate-pop-in">
-            <h2 id="modal-profile-title"
-                class="text-4xl font-black text-white mb-8 border-b border-zinc-800 pb-4 uppercase tracking-tighter">
-                Edit Profile</h2>
-
-            <div class="flex flex-col md:flex-row gap-10">
-                <div class="flex flex-col items-center gap-4">
-                    <img id="modal-avatar-preview" src=""
-                        class="w-32 h-32 md:w-40 md:h-40 rounded-md object-cover shadow-2xl border-2 border-transparent">
-                    <p class="text-[10px] text-zinc-500 uppercase font-black tracking-widest">Select Avatar Below</p>
-                </div>
-
-                <div class="flex-1 space-y-8">
-                    <div class="space-y-2">
-                        <label for="profile-name-input"
-                            class="text-zinc-500 text-xs font-black uppercase tracking-widest">Profile Name</label>
-                        <input type="text" id="profile-name-input" placeholder="Enter name"
-                            class="w-full bg-zinc-800 border-0 rounded p-4 text-xl text-white focus:ring-2 focus:ring-netflix-red outline-none">
-                    </div>
-
-                    <div class="space-y-4">
-                        <p class="text-zinc-500 text-xs font-black uppercase tracking-widest">Choose Your Icon</p>
-                        <div id="avatar-picker"
-                            class="grid grid-cols-4 md:grid-cols-5 gap-3 max-h-[200px] overflow-y-auto no-scrollbar pb-4 pr-1">
-                            <!-- Avatars injected here -->
-                        </div>
-                    </div>
-
-                    <div id="delete-profile-container" class="hidden pt-4 border-t border-zinc-800">
-                        <button id="delete-profile-btn"
-                            class="flex items-center gap-2 text-zinc-600 hover:text-netflix-red transition-colors font-bold text-sm uppercase tracking-widest">
-                            <span class="material-symbols-outlined">delete</span> Delete Profile
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-end gap-4 mt-12 pt-8 border-t border-zinc-800">
-                <button id="cancel-profile-btn"
-                    class="px-8 py-3 bg-transparent border border-zinc-600 text-zinc-500 hover:text-white hover:border-white transition-all font-black text-xs uppercase tracking-widest">Cancel</button>
-                <button id="save-profile-btn"
-                    class="px-10 py-3 bg-white text-black hover:bg-netflix-red hover:text-white transition-all font-black text-xs uppercase tracking-widest shadow-xl">Save
-                    Changes</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Premium Navigation -->
     <nav id="main-nav"
@@ -485,15 +412,6 @@
                 class="text-2xl md:text-3xl font-black tracking-tighter text-netflix-red cursor-pointer hover:scale-105 transition-transform shrink-0">
                 ADAMSTREAM</h1>
 
-            <!-- Mobile User Profile -->
-            <div class="flex md:hidden items-center gap-4">
-                <div id="nav-profile-btn-mobile"
-                    class="w-8 h-8 rounded cursor-pointer overflow-hidden border-2 border-transparent hover:border-white transition-all shadow-glow">
-                    <img id="nav-profile-img-mobile"
-                        src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop"
-                        alt="Profile">
-                </div>
-            </div>
         </div>
 
         <!-- Scrollable Category Tabs -->
@@ -521,12 +439,6 @@
             </div>
             <button type="button" class="material-symbols-outlined text-white text-2xl"
                 aria-label="Notifications">notifications</button>
-            <div id="nav-profile-btn"
-                class="w-8 h-8 rounded cursor-pointer overflow-hidden border-2 border-transparent hover:border-white transition-all shadow-glow">
-                <img id="nav-profile-img"
-                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=100&auto=format&fit=crop"
-                    alt="Profile">
-            </div>
         </div>
     </nav>
 

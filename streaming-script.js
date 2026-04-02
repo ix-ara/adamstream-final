@@ -43,33 +43,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const apiKeyInput = document.getElementById('tmdb-api-input');
     const saveApiBtn = document.getElementById('save-api-btn');
     const seasonSelect = document.getElementById('season-select');
-
-    // Profile Elements
-    const profilesList = document.getElementById('profiles-list');
-    const profileModal = document.getElementById('profile-modal');
-    const profileNameInput = document.getElementById('profile-name-input');
-    const avatarPicker = document.getElementById('avatar-picker');
-    const saveProfileBtn = document.getElementById('save-profile-btn');
-    const cancelProfileBtn = document.getElementById('cancel-profile-btn');
-    const manageProfilesBtn = document.getElementById('manage-profiles-btn');
-    const doneManagingBtn = document.getElementById('done-managing-btn');
-    const deleteProfileBtn = document.getElementById('delete-profile-btn');
-    const deleteContainer = document.getElementById('delete-profile-container');
-    const modalAvatarPreview = document.getElementById('modal-avatar-preview');
-    const profileHeadline = document.getElementById('profile-headline');
-
-    const PREMIUM_AVATARS = [
-        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=200&auto=format&fit=crop"
-    ];
+    // Profile Elements removed
 
     
     
@@ -114,15 +88,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     let featuredPool = [];
     let currentServer = 'alpha'; // alpha, delta, prime, legacy
 
-    // Profile State
-    let profiles = JSON.parse(localStorage.getItem('adamstream_profiles')) || [
-        { id: '1', name: 'Adam', avatar: PREMIUM_AVATARS[0] },
-        { id: '2', name: 'Kids', avatar: PREMIUM_AVATARS[1] }
-    ];
-    let activeProfile = JSON.parse(localStorage.getItem('adamstream_active_profile')) || null;
-    let isManageMode = false;
-    let editingProfileId = null;
-    let selectedAvatarUrl = PREMIUM_AVATARS[0];
+    // Profile states removed
 
     const SERVERS = {
         alpha: {
@@ -491,217 +457,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function initProfiles() {
-        renderProfiles();
-        initAvatarPicker();
-
-        manageProfilesBtn.onclick = () => toggleManageMode(true);
-        doneManagingBtn.onclick = () => toggleManageMode(false);
-        cancelProfileBtn.onclick = closeProfileModal;
-        saveProfileBtn.onclick = saveProfile;
-        deleteProfileBtn.onclick = deleteProfile;
-
-        // Overlay Style Injection
-        const style = document.createElement('style');
-        style.innerHTML = `
-            #hero-bg { transition: opacity 1.5s ease-in-out; }
-            .skeleton-row {
-                background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
-                background-size: 200% 100%;
-                animation: skeleton-pulse 1.5s infinite linear;
-            }
-            @keyframes skeleton-pulse {
-                0% { background-position: 200% 0; }
-                100% { background-position: -200% 0; }
-            }
-            .profile-card.shimmering { animation: profile-shimmer 1s ease-out; }
-            @keyframes profile-shimmer {
-                0% { transform: scale(0.9); opacity: 0; }
-                100% { transform: scale(1); opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Parallax Effect for mesh-bg (Disabled on touch for performance)
-        if (window.matchMedia('(pointer: fine)').matches) {
-            profileScreen.onmousemove = (e) => {
-                const mesh = document.querySelector('.mesh-bg');
-                if (!mesh) return;
-                const x = (e.clientX / window.innerWidth - 0.5) * 50;
-                const y = (e.clientY / window.innerHeight - 0.5) * 50;
-                mesh.style.transform = `translate(${x}px, ${y}px) rotate(${x/10}deg)`;
-            };
-        }
-
-        if (activeProfile && currentTab === 'home' && libraryData.movies.length === 0) {
-            // First load auto-login: bypass profile screen instantly
-            profileScreen.style.display = 'none';
-            profileScreen.style.visibility = 'hidden';
-            profileScreen.style.opacity = '0';
-            profileScreen.classList.add('hidden', 'pointer-events-none');
-            
-            const navAvatar = document.getElementById('nav-profile-img');
-            const navAvatarMobile = document.getElementById('nav-profile-img-mobile');
-            if (navAvatar) navAvatar.src = activeProfile.avatar;
-            if (navAvatarMobile) navAvatarMobile.src = activeProfile.avatar;
-            
-            document.body.style.overflow = '';
-        } else {
-             document.body.style.overflow = 'hidden';
-        }
-    }
-
-    function renderProfiles() {
-        if (!profilesList) return;
-        profilesList.innerHTML = '';
-
-        profiles.forEach((p, index) => {
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.className = `profile-card group flex flex-col items-center bg-transparent border-0 p-0 focus:outline-none transition-all duration-300 relative ${isManageMode ? 'managing' : ''}`;
-            card.style.animationDelay = `${index * 100}ms`;
-            card.classList.add('animate-pop-in');
-            
-            card.innerHTML = `
-                <div class="w-32 h-32 md:w-44 md:h-44 rounded-md overflow-hidden mb-6 relative transition-all duration-700 hover:shadow-[0_0_60px_rgba(229,9,20,0.5)]">
-                    <img src="${p.avatar}" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 group-hover:rotate-1" alt="${p.name}">
-                    <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors duration-500"></div>
-                    <div class="edit-overlay absolute inset-0 flex items-center justify-center bg-black/70 rounded-md">
-                         <div class="bg-netflix-red/90 p-4 rounded-full border border-white/40 shadow-2xl transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-12">
-                            <span class="material-symbols-outlined text-white text-4xl">edit</span>
-                         </div>
-                    </div>
-                </div>
-                <span class="text-zinc-400 group-hover:text-white transition-all duration-500 md:text-2xl font-black tracking-tight drop-shadow-2xl uppercase">${p.name}</span>
-            `;
-            card.onclick = () => {
-                if (isManageMode) openProfileModal(p.id);
-                else selectProfile(p.id);
-            };
-            profilesList.appendChild(card);
-        });
-
-        // Add Profile button
-        if (profiles.length < 5) {
-            const addBtn = document.createElement('button');
-            addBtn.innerHTML = `
-                <div class="w-32 h-32 md:w-44 md:h-44 rounded-md overflow-hidden mb-6 flex items-center justify-center relative bg-black/40 group focus:bg-black/60 border-2 border-dashed border-zinc-700 hover:border-white hover:bg-white/5 transition-all duration-500">
-                    <span class="material-symbols-outlined text-7xl text-zinc-600 group-hover:text-white group-hover:scale-110 transition-all duration-500">add</span>
-                </div>
-                <span class="text-zinc-600 group-hover:text-white transition-all duration-500 md:text-2xl font-black tracking-tight uppercase">Add Profile</span>
-            `;
-            addBtn.className = "group flex flex-col items-center bg-transparent border-0 p-0 focus:outline-none";
-            addBtn.onclick = () => openProfileModal(null);
-            profilesList.appendChild(addBtn);
-        }
-    }
-
-    function initAvatarPicker() {
-        if (!avatarPicker) return;
-        avatarPicker.innerHTML = '';
-        PREMIUM_AVATARS.forEach(url => {
-            const img = document.createElement('img');
-            img.src = url;
-            img.className = "avatar-option w-full aspect-square object-cover rounded-md cursor-pointer hover:opacity-80 transition-opacity border-2 border-transparent";
-            img.onclick = () => {
-                selectedAvatarUrl = url;
-                document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
-                img.classList.add('selected');
-                modalAvatarPreview.src = url;
-            };
-            avatarPicker.appendChild(img);
-        });
-    }
-
-    function toggleManageMode(managing) {
-        isManageMode = managing;
-        profileHeadline.textContent = managing ? 'Manage Profiles:' : "Who's watching?";
-        manageProfilesBtn.classList.toggle('hidden', managing);
-        doneManagingBtn.classList.toggle('hidden', !managing);
-        renderProfiles();
-    }
-
-    function openProfileModal(id = null) {
-        editingProfileId = id;
-        const p = profiles.find(x => x.id === id);
-        
-        document.getElementById('modal-profile-title').textContent = id ? 'Edit Profile' : 'Add Profile';
-        profileNameInput.value = p ? p.name : '';
-        selectedAvatarUrl = p ? p.avatar : PREMIUM_AVATARS[0];
-        modalAvatarPreview.src = selectedAvatarUrl;
-        
-        // Match selection in picker
-        document.querySelectorAll('.avatar-option').forEach(el => {
-            el.classList.toggle('selected', el.src === selectedAvatarUrl);
-        });
-        
-        deleteContainer.classList.toggle('hidden', !id);
-        
-        profileModal.classList.remove('opacity-0', 'pointer-events-none');
-    }
-
-    function closeProfileModal() {
-        profileModal.classList.add('opacity-0', 'pointer-events-none');
-    }
-
-    function saveProfile() {
-        const name = profileNameInput.value.trim();
-        if (!name) return;
-
-        if (editingProfileId) {
-            const idx = profiles.findIndex(p => p.id === editingProfileId);
-            if (idx !== -1) {
-                profiles[idx].name = name;
-                profiles[idx].avatar = selectedAvatarUrl;
-            }
-        } else {
-            profiles.push({
-                id: Date.now().toString(),
-                name: name,
-                avatar: selectedAvatarUrl
-            });
-        }
-
-        localStorage.setItem('adamstream_profiles', JSON.stringify(profiles));
-        closeProfileModal();
-        renderProfiles();
-    }
-
-    function deleteProfile() {
-        if (!editingProfileId) return;
-        if (confirm(`Are you sure you want to delete ${profiles.find(p => p.id === editingProfileId).name}?`)) {
-            profiles = profiles.filter(p => p.id !== editingProfileId);
-            localStorage.setItem('adamstream_profiles', JSON.stringify(profiles));
-            closeProfileModal();
-            renderProfiles();
-        }
-    }
-
-    function selectProfile(id) {
-        const p = profiles.find(x => x.id === id);
-        if (!p) return;
-
-        activeProfile = p;
-        localStorage.setItem('adamstream_active_profile', JSON.stringify(p));
-
-        // Update Nav Avatar
-        const navAvatar = document.getElementById('nav-profile-img');
-        const navAvatarMobile = document.getElementById('nav-profile-img-mobile');
-        if (navAvatar) navAvatar.src = p.avatar;
-        if (navAvatarMobile) navAvatarMobile.src = p.avatar;
-
-        // Cinematic Exit
-        profileScreen.style.transform = 'scale(1.1)';
-        profileScreen.classList.add('opacity-0', 'pointer-events-none');
-        
-        setTimeout(() => {
-            profileScreen.style.display = 'none';
-            profileScreen.style.visibility = 'hidden';
-            profileScreen.style.pointerEvents = 'none';
-            document.body.style.overflow = '';
-            updateTabState(currentTab);
-        }, 750);
-    }
+    // Profile functions completely removed
 
     function updateHeroUI(item) {
         const heroContent = document.getElementById('hero-content-wrap');
@@ -920,9 +676,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         detailModal.classList.add('opacity-0', 'pointer-events-none');
         detailModal.querySelector('#modal-content').classList.remove('scale-100');
         detailModal.querySelector('#modal-content').classList.add('scale-95');
-        if (profileScreen && profileScreen.style.display === 'none') {
-            document.body.style.overflow = '';
-        }
+        document.body.style.overflow = '';
     }
 
     // --- Vidsrc Embed / Player ---
@@ -1021,9 +775,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             const s = season || 1;
             const e = episode || 1;
             
-            if (item.isAnime && animeDubMode) {
-                // DUB: 2anime for dubbed anime
-                url = `https://2anime.xyz/embed/${item.tmdb_id}-${s}-${e}-dub`;
+            if (item.isAnime) {
+                if (animeDubMode) {
+                    // DUB: Vidsrc player natively handles multi-dub where available
+                    url = `https://vidsrc.to/embed/tv/${item.tmdb_id}/${s}/${e}`;
+                } else {
+                    // SUB: embed.su forces 100% Japanese with English subtitles natively
+                    url = `https://embed.su/embed/tv/${item.tmdb_id}/${s}/${e}`;
+                }
             } else {
                 // TV Default (Subbed): Based on currentServer
                 url = server.tv(item.tmdb_id, s, e);
@@ -1085,9 +844,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         videoOverlay.classList.add('opacity-0', 'pointer-events-none');
         animeDubMode = false;
         if (dubHint) dubHint.classList.add('hidden');
-        if (profileScreen && profileScreen.style.display === 'none') {
-            document.body.style.overflow = '';
-        }
+        document.body.style.overflow = '';
     }
 
     // Sub/Dub toggle handlers
@@ -1449,14 +1206,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if (row) contentRows.appendChild(row);
     }
 
-    function switchToProfileSelector() {
-        profileScreen.classList.remove('opacity-0', 'pointer-events-none');
-        profileScreen.style.display = 'flex';
-        profileScreen.style.transform = 'scale(1)';
-        document.body.style.overflow = 'hidden';
-        initProfiles();
-    }
-
     function init() {
         if (isInitialized) return;
         isInitialized = true;
@@ -1466,11 +1215,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (appLoader) {
                 appLoader.classList.add('hidden');
             }
-            if (profileScreen && !activeProfile) {
-                profileScreen.style.display = 'none';
-                profileScreen.classList.add('hidden');
-                document.body.style.overflow = '';
-            }
             // If we're still on the logo, show some feedback unconditionally after timeout
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
                 heroTitle.textContent = 'CINEMATIC SERVER DELAY';
@@ -1478,17 +1222,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 if(heroSetup) heroSetup.classList.remove('hidden');
             }
         }, 8000);
-        
-        const profileIcon = document.getElementById('nav-profile-btn');
-        const profileIconMobile = document.getElementById('nav-profile-btn-mobile');
-        
-        const openSelector = (e) => {
-            e.preventDefault();
-            switchToProfileSelector();
-        };
-
-        if (profileIcon) profileIcon.onclick = openSelector;
-        if (profileIconMobile) profileIconMobile.onclick = openSelector;
 
         const subBtn = document.getElementById('player-sub-btn');
         if (subBtn) {
@@ -1565,12 +1298,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
         // Execute single data load
         loadData();
-
-        if (profileScreen && profileScreen.style.display === 'none') {
-            // Already logged in case
-        } else {
-            initProfiles();
-        }
     }
 
     // Kickoff
