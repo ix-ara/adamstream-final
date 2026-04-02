@@ -411,10 +411,11 @@
             <h1 id="nav-logo"
                 class="text-2xl md:text-3xl font-black tracking-tighter text-netflix-red cursor-pointer hover:scale-105 transition-transform shrink-0">
                 ADAMSTREAM</h1>
-            
+
             <!-- Universal Search (Visible on Mobile & Desktop) -->
             <div class="relative flex items-center group ml-auto md:ml-0">
-                <span class="material-symbols-outlined text-white text-2xl absolute left-3 pointer-events-none group-focus-within:text-netflix-red transition-colors">search</span>
+                <span
+                    class="material-symbols-outlined text-white text-2xl absolute left-3 pointer-events-none group-focus-within:text-netflix-red transition-colors">search</span>
                 <input id="search-input" type="text" placeholder="Search titles..."
                     class="bg-zinc-900/60 border border-zinc-800 focus:border-zinc-500 hover:bg-zinc-800/80 transition-all duration-300 py-2 pl-10 pr-4 rounded-full text-sm outline-none w-32 md:w-48 focus:w-48 md:focus:w-80 backdrop-blur-md text-white placeholder-zinc-500 font-medium shadow-lg">
             </div>
@@ -437,10 +438,14 @@
 
         <!-- Desktop Right Section -->
         <div class="hidden md:flex items-center gap-6">
-            <button type="button" class="material-symbols-outlined text-white text-2xl hover:text-netflix-red transition-colors"
+            <button type="button"
+                class="material-symbols-outlined text-white text-2xl hover:text-netflix-red transition-colors"
                 aria-label="Notifications">notifications</button>
-            <div id="nav-profile-btn" class="w-8 h-8 rounded bg-netflix-red overflow-hidden cursor-pointer hover:ring-2 ring-white transition-all">
-                <img id="nav-profile-img" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop" class="w-full h-full object-cover" alt="Profile">
+            <div id="nav-profile-btn"
+                class="w-8 h-8 rounded bg-netflix-red overflow-hidden cursor-pointer hover:ring-2 ring-white transition-all">
+                <img id="nav-profile-img"
+                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop"
+                    class="w-full h-full object-cover" alt="Profile">
             </div>
         </div>
     </nav>

@@ -55,6 +55,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         tv: [],
         popular: [],
         binge: [],
+        // Genre specific
+        actionMovies: [],
+        horrorMovies: [],
+        romanceMovies: [],
+        actionTV: [],
+        horrorTV: [],
+        romanceTV: [],
+        actionAnime: [],
+        horrorAnime: [],
+        romanceAnime: [],
+        actionKDrama: [],
+        horrorKDrama: [],
+        romanceKDrama: [],
+        // Existing categories
         action: [],
         comedy: [],
         horror: [],
@@ -245,8 +259,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 fetchTMDB('/discover/movie?with_genres=35&sort_by=popularity.desc'), // Comedy  
                 fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'), // Horror
                 fetchTMDB('/discover/movie?with_genres=878&sort_by=popularity.desc'), // SciFi
-                // TV Genres
-                fetchTMDB('/discover/tv?with_genres=80&sort_by=popularity.desc') // Crime TV
+                fetchTMDB('/discover/tv?with_genres=80&sort_by=popularity.desc'), // Crime TV
+                // New Focused Genres (Detailed Mapping)
+                fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'), // Action Movies (duplicate of 12 for clarity)
+                fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'), // Horror Movies (duplicate of 14 for clarity)
+                fetchTMDB('/discover/movie?with_genres=10749&sort_by=popularity.desc'), // Romance Movies
+                fetchTMDB('/discover/tv?with_genres=10759&sort_by=popularity.desc'), // Action TV
+                fetchTMDB('/discover/tv?with_genres=9648&sort_by=popularity.desc'), // Horror TV (Mystery)
+                fetchTMDB('/discover/tv?with_genres=10766&sort_by=popularity.desc'), // Romance TV
+                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc'), // Action Anime
+                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc'), // Horror Anime
+                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc'), // Romance Anime
+                fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc'), // Action K-Drama
+                fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc'), // Horror K-Drama
+                fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc') // Romance K-Drama
             ];
 
             const results = await Promise.all(endpoints.map(promise => 
@@ -275,7 +301,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 comedyRes,
                 horrorRes,
                 scifiRes,
-                crimeTvRes
+                crimeTvRes,
+                // New Results
+                actionMoviesRes, horrorMoviesRes, romanceMoviesRes,
+                actionTVRes, horrorTVRes, romanceTVRes,
+                actionAnimeRes, horrorAnimeRes, romanceAnimeRes,
+                actionKDramaRes, horrorKDramaRes, romanceKDramaRes
             ] = results;
 
             const moviesRes = combine(moviesRes1, moviesRes2);
@@ -289,6 +320,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (horrorRes) libraryData.horror = horrorRes.results.map(i => formatItem(i, 'movie'));
             if (scifiRes) libraryData.scifi = scifiRes.results.map(i => formatItem(i, 'movie'));
             if (crimeTvRes) libraryData.crimeTv = crimeTvRes.results.map(i => formatItem(i, 'tv'));
+
+            // Map New Genres
+            if (actionMoviesRes) libraryData.actionMovies = actionMoviesRes.results.map(i => formatItem(i, 'movie'));
+            if (horrorMoviesRes) libraryData.horrorMovies = horrorMoviesRes.results.map(i => formatItem(i, 'movie'));
+            if (romanceMoviesRes) libraryData.romanceMovies = romanceMoviesRes.results.map(i => formatItem(i, 'movie'));
+            if (actionTVRes) libraryData.actionTV = actionTVRes.results.map(i => formatItem(i, 'tv'));
+            if (horrorTVRes) libraryData.horrorTV = horrorTVRes.results.map(i => formatItem(i, 'tv'));
+            if (romanceTVRes) libraryData.romanceTV = romanceTVRes.results.map(i => formatItem(i, 'tv'));
+            if (actionAnimeRes) libraryData.actionAnime = actionAnimeRes.results.map(i => formatItem(i, 'anime'));
+            if (horrorAnimeRes) libraryData.horrorAnime = horrorAnimeRes.results.map(i => formatItem(i, 'anime'));
+            if (romanceAnimeRes) libraryData.romanceAnime = romanceAnimeRes.results.map(i => formatItem(i, 'anime'));
+            if (actionKDramaRes) libraryData.actionKDrama = actionKDramaRes.results.map(i => formatItem(i, 'tv'));
+            if (horrorKDramaRes) libraryData.horrorKDrama = horrorKDramaRes.results.map(i => formatItem(i, 'tv'));
+            if (romanceKDramaRes) libraryData.romanceKDrama = romanceKDramaRes.results.map(i => formatItem(i, 'tv'));
 
             // Check if ALL critical fetches failed
             if (!moviesRes && !animeRes && !kdramaRes && !tvRes) {
@@ -1081,12 +1126,18 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if (currentTab === 'anime') {
             categories = {
                 "Trending Anime": libraryData.anime,
+                "Action Anime Highlights": libraryData.actionAnime,
+                "Chilling Horror Anime": libraryData.horrorAnime,
+                "Sweet Romance Anime": libraryData.romanceAnime,
                 "Top Rated Anime Classics": libraryData.animeTop,
                 "New Weekly Releases": [...libraryData.anime].sort(() => Math.random() - 0.5)
             };
         } else if (currentTab === 'tv') {
             categories = {
                 "Trending TV Shows": libraryData.tv,
+                "Explosive Action TV": libraryData.actionTV,
+                "Spine-Tingling Mystery & Horror": libraryData.horrorTV,
+                "Romantic TV Dramas": libraryData.romanceTV,
                 "Binge-Worthy Series": libraryData.binge,
                 "Crime TV Thrillers": libraryData.crimeTv,
                 "Korean Drama Craze": libraryData.kdrama
@@ -1094,17 +1145,18 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         } else if (currentTab === 'movies') {
             categories = {
                 "Popular Movies": libraryData.movies,
-                "Action & Adventure": libraryData.action,
+                "Adrenaline-Pumping Action": libraryData.actionMovies,
+                "Nightmare-Inducing Horror": libraryData.horrorMovies,
+                "Heart-Warming Romance": libraryData.romanceMovies,
                 "Blockbuster Comedies": libraryData.comedy,
                 "Sci-Fi & Fantasy": libraryData.scifi,
-                "Horror Thrillers": libraryData.horror,
                 "Trending Movies of the Week": libraryData.popular
             };
         } else if (currentTab === 'popular') {
             categories = {
                 "New & Trending": libraryData.popular,
                 "Hot on AdamStream": libraryData.binge,
-                "Top Action Flicks": libraryData.action
+                "Top Action Flicks": libraryData.actionMovies
             };
         } else if (currentTab === 'mylist') {
             categories = {
@@ -1117,7 +1169,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         } else if (currentTab === 'kdrama') {
             categories = {
                 "Trending Korean Dramas": libraryData.kdrama,
-                "Romantic Classics": libraryData.kdrama.slice().reverse(),
+                "Action-Packed K-Dramas": libraryData.actionKDrama,
+                "Dark K-Drama Thrillers": libraryData.horrorKDrama,
+                "Romantic Korean Classics": libraryData.romanceKDrama,
                 "Must-Watch K-Dramas": libraryData.kdrama.slice().sort(() => Math.random() - 0.5)
             };
         } else {
@@ -1128,12 +1182,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             categories = {
                 ...categories,
                 "Trending Movies": libraryData.movies,
-                "Top Action & Adventure": libraryData.action,
+                "New Action Hits": libraryData.actionMovies,
+                "Horror Night Features": libraryData.horrorMovies,
+                "Romance for You": libraryData.romanceMovies,
                 "Binge-Worthy TV Series": libraryData.binge,
-                "Blockbuster Comedies": libraryData.comedy,
-                "Crime TV Shows": libraryData.crimeTv,
-                "Sci-Fi Masterpieces": libraryData.scifi,
-                "Anime Hits": libraryData.anime
+                "Anime Hits": libraryData.anime,
+                "Korean Drama Trends": libraryData.kdrama
             };
         }
 
@@ -1176,22 +1230,34 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const categoryMap = {
             "Trending Movies": "/trending/movie/week",
             "Trending Anime": "/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc",
+            "Action Anime Highlights": "/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc",
+            "Chilling Horror Anime": "/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc",
+            "Sweet Romance Anime": "/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc",
             "Top Rated Anime Classics": "/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000",
             "Korean Drama Craze": "/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc",
             "Trending Korean Dramas": "/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc",
+            "Action-Packed K-Dramas": "/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc",
+            "Dark K-Drama Thrillers": "/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc",
+            "Romantic Korean Classics": "/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc",
             "Binge-Worthy Series": "/trending/tv/week",
             "Binge-Worthy TV Series": "/trending/tv/week",
             "Popular Movies": "/movie/popular",
             "Trending Movies of the Week": "/movie/popular",
-            "Action & Adventure": "/discover/movie?with_genres=28&sort_by=popularity.desc",
-            "Top Action & Adventure": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "Adrenaline-Pumping Action": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "New Action Hits": "/discover/movie?with_genres=28&sort_by=popularity.desc",
             "Top Action Flicks": "/discover/movie?with_genres=28&sort_by=popularity.desc",
             "Blockbuster Comedies": "/discover/movie?with_genres=35&sort_by=popularity.desc",
             "Sci-Fi & Fantasy": "/discover/movie?with_genres=878&sort_by=popularity.desc",
             "Sci-Fi Masterpieces": "/discover/movie?with_genres=878&sort_by=popularity.desc",
-            "Horror Thrillers": "/discover/movie?with_genres=27&sort_by=popularity.desc",
+            "Nightmare-Inducing Horror": "/discover/movie?with_genres=27&sort_by=popularity.desc",
+            "Horror Night Features": "/discover/movie?with_genres=27&sort_by=popularity.desc",
+            "Heart-Warming Romance": "/discover/movie?with_genres=10749&sort_by=popularity.desc",
+            "Romance for You": "/discover/movie?with_genres=10749&sort_by=popularity.desc",
             "Crime TV Thrillers": "/discover/tv?with_genres=80&sort_by=popularity.desc",
-            "Crime TV Shows": "/discover/tv?with_genres=80&sort_by=popularity.desc"
+            "Crime TV Shows": "/discover/tv?with_genres=80&sort_by=popularity.desc",
+            "Explosive Action TV": "/discover/tv?with_genres=10759&sort_by=popularity.desc",
+            "Spine-Tingling Mystery & Horror": "/discover/tv?with_genres=9648&sort_by=popularity.desc",
+            "Romantic TV Dramas": "/discover/tv?with_genres=10766&sort_by=popularity.desc"
         };
         
         const baseEndpoint = categoryMap[title];
