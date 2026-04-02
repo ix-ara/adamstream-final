@@ -1183,9 +1183,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const rowWrapper = document.createElement('div');
         rowWrapper.className = 'px-4 md:px-12 row-animate mb-8';
 
+        const titleWrapper = document.createElement('div');
+        titleWrapper.className = 'flex items-center justify-between mb-2 pr-4';
+
         const rowTitle = document.createElement('h3');
-        rowTitle.className = 'text-lg md:text-xl font-bold mb-2 text-zinc-100 tracking-tight drop-shadow-md';
+        rowTitle.className = 'text-lg md:text-xl font-bold text-zinc-100 tracking-tight drop-shadow-md';
         rowTitle.textContent = title;
+
+        const viewAllBtn = document.createElement('button');
+        viewAllBtn.className = 'text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 group';
+        viewAllBtn.innerHTML = 'View All <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>';
+        viewAllBtn.onclick = () => renderGrid(title, items);
+
+        titleWrapper.appendChild(rowTitle);
+        titleWrapper.appendChild(viewAllBtn);
 
         const scrollContainer = document.createElement('div');
         scrollContainer.className = 'flex gap-3 overflow-x-auto no-scrollbar pb-8 pt-2 scroll-smooth px-1';
@@ -1211,7 +1222,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             scrollContainer.appendChild(createMovieCard(item, isTrending && idx < 5));
         });
 
-        rowWrapper.appendChild(rowTitle);
+        rowWrapper.appendChild(titleWrapper);
         rowWrapper.classList.add('relative', 'group');
         rowWrapper.appendChild(leftBtn);
         rowWrapper.appendChild(rightBtn);
@@ -1314,6 +1325,41 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 if (row) contentRows.appendChild(row);
             }
         });
+    }
+
+    function renderGrid(title, items) {
+        if (!contentRows) return;
+        heroSection.style.display = 'none';
+        contentRows.classList.remove('-mt-20');
+        contentRows.classList.add('mt-24');
+        
+        contentRows.innerHTML = `
+            <div class="px-4 md:px-12 mb-8 flex items-center justify-between animate-fade-in">
+                <h2 class="text-xl md:text-3xl font-black uppercase tracking-tighter drop-shadow-2xl">${title}</h2>
+                <button id="back-to-browse" class="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold group bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-700 hover:border-zinc-500">
+                    <span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                    <span class="hidden md:inline uppercase text-[10px] tracking-widest">Back to Browse</span>
+                </button>
+            </div>
+            <div id="grid-container" class="px-4 md:px-12 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-5 pb-32 animate-slide-up">
+            </div>
+        `;
+        
+        const grid = document.getElementById('grid-container');
+        items.forEach((item, idx) => {
+            const card = createMovieCard(item, false);
+            // Replace fixed widths with full fluid grid width
+            card.classList.remove('w-32', 'md:w-48', 'flex-shrink-0');
+            card.classList.add('w-full');
+            card.style.animationDelay = `${idx * 30}ms`;
+            grid.appendChild(card);
+        });
+
+        document.getElementById('back-to-browse').onclick = () => {
+            updateTabState(currentTab); // Returns to the current row-based view
+        };
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function handleSearch(query) {
