@@ -122,6 +122,10 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if (!TMDB_API_KEY) return null;
         try {
             const url = new URL(`${BASE_URL}${endpoint}`);
+            const ANIME_SERVER = {
+        sub: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
+        dub: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=6366f1&dub=true`
+    };
             console.log('Fetching:', url.toString().replace(TMDB_API_KEY, '***'));
             url.searchParams.append('api_key', TMDB_API_KEY);
             url.searchParams.append('language', 'en-US');
