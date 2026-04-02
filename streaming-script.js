@@ -115,9 +115,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // Multiple anime sub sources - cycle through if one plays wrong language
     const SUB_SOURCES = [
+        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&lang=ja`,
+        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&lang=ja`,
         (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
-        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
-        (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
         (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`
     ];
     let currentSubSourceIdx = 0;
@@ -819,17 +819,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                     // DUB: vidsrc.xyz with dub=1 → confirmed English dubbed
                     url = ANIME_SERVER.dub(item.tmdb_id, s, e);
                 } else {
-                    // SUB: Use AniList to get MAL ID → anime-native Japanese source
+                    // SUB: Use the currently selected source from the cycle
                     if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
                     playerIframe.src = '';
+                    
+                    // We can still fetch the malId just in case we want to use specialized sources in the future, 
+                    // but for now, we follow the cycling source order for reliability.
                     const malId = await fetchMalId(item.title);
-                    if (malId) {
-                        // Use MAL ID with anime-specific player (guaranteed Japanese)
-                        url = `https://2anime.xyz/embed/${malId}-${s}-${e}`;
-                    } else {
-                        // Fallback to cycling sources if AniList lookup fails
-                        url = SUB_SOURCES[currentSubSourceIdx % SUB_SOURCES.length](item.tmdb_id, s, e);
-                    }
+                    url = SUB_SOURCES[currentSubSourceIdx % SUB_SOURCES.length](item.tmdb_id, s, e);
                 }
             } else {
                 // TV Default (Subbed): Based on currentServer
