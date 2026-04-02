@@ -98,8 +98,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         },
         delta: {
             name: 'Delta',
-            movie: (id) => `https://embed.su/embed/movie/${id}`,
-            tv: (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`
+            movie: (id) => `https://vidsrc.xyz/embed/movie?tmdb=${id}`,
+            tv: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`
         },
         prime: {
             name: 'Prime',
@@ -117,7 +117,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const SUB_SOURCES = [
         (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
         (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
-        (id, s, e) => `https://embed.su/embed/tv/${id}/${s}/${e}`,
+        (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
         (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`
     ];
     let currentSubSourceIdx = 0;
