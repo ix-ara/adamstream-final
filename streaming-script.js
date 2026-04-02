@@ -81,6 +81,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         tv: [],
         popular: [],
         binge: [],
+        action: [],
+        comedy: [],
+        horror: [],
+        scifi: [],
+        crimeTv: [],
         myList: JSON.parse(localStorage.getItem('adamstream_mylist')) || []
     };
     
@@ -216,6 +221,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             };
 
             const endpoints = [
+                // General
                 fetchTMDB('/trending/movie/week'), 
                 fetchTMDB('/trending/movie/week?page=2'),
                 fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc'), 
@@ -226,8 +232,15 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 fetchTMDB('/trending/tv/week'),
                 fetchTMDB('/trending/tv/week?page=2'),
                 fetchTMDB('/discover/tv?sort_by=popularity.desc&without_origin_country=JP|KR'), 
+                // Movies Genres
                 fetchTMDB('/movie/popular'),
-                fetchTMDB('/movie/popular?page=2')
+                fetchTMDB('/movie/popular?page=2'),
+                fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'), // Action
+                fetchTMDB('/discover/movie?with_genres=35&sort_by=popularity.desc'), // Comedy  
+                fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'), // Horror
+                fetchTMDB('/discover/movie?with_genres=878&sort_by=popularity.desc'), // SciFi
+                // TV Genres
+                fetchTMDB('/discover/tv?with_genres=80&sort_by=popularity.desc') // Crime TV
             ];
 
             const results = await Promise.all(endpoints.map(promise => 
@@ -251,7 +264,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 kdramaRes1, kdramaRes2,
                 bingeRes1, bingeRes2,
                 tvRes,
-                popularRes1, popularRes2
+                popularRes1, popularRes2,
+                actionRes,
+                comedyRes,
+                horrorRes,
+                scifiRes,
+                crimeTvRes
             ] = results;
 
             const moviesRes = combine(moviesRes1, moviesRes2);
@@ -259,6 +277,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             const kdramaRes = combine(kdramaRes1, kdramaRes2);
             const bingeRes = combine(bingeRes1, bingeRes2);
             const popularRes = combine(popularRes1, popularRes2);
+
+            if (actionRes) libraryData.action = actionRes.results.map(i => formatItem(i, 'movie'));
+            if (comedyRes) libraryData.comedy = comedyRes.results.map(i => formatItem(i, 'movie'));
+            if (horrorRes) libraryData.horror = horrorRes.results.map(i => formatItem(i, 'movie'));
+            if (scifiRes) libraryData.scifi = scifiRes.results.map(i => formatItem(i, 'movie'));
+            if (crimeTvRes) libraryData.crimeTv = crimeTvRes.results.map(i => formatItem(i, 'tv'));
 
             // Check if ALL critical fetches failed
             if (!moviesRes && !animeRes && !kdramaRes && !tvRes) {
@@ -508,10 +532,19 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             };
         }
 
-        if (activeProfile) {
-            // Auto login if profile exists, but showing screen is better for UX
-            // Hide the screen if you want persistent login
-             selectProfile(activeProfile.id);
+        if (activeProfile && currentTab === 'home' && libraryData.movies.length === 0) {
+            // First load auto-login: bypass profile screen instantly
+            profileScreen.style.display = 'none';
+            profileScreen.style.visibility = 'hidden';
+            profileScreen.style.opacity = '0';
+            profileScreen.classList.add('hidden', 'pointer-events-none');
+            
+            const navAvatar = document.getElementById('nav-profile-img');
+            const navAvatarMobile = document.getElementById('nav-profile-img-mobile');
+            if (navAvatar) navAvatar.src = activeProfile.avatar;
+            if (navAvatarMobile) navAvatarMobile.src = activeProfile.avatar;
+            
+            document.body.style.overflow = '';
         } else {
              document.body.style.overflow = 'hidden';
         }
@@ -665,7 +698,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             profileScreen.style.visibility = 'hidden';
             profileScreen.style.pointerEvents = 'none';
             document.body.style.overflow = '';
-            loadData();
+            updateTabState(currentTab);
         }, 750);
     }
 
@@ -1219,23 +1252,30 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if (currentTab === 'anime') {
             categories = {
                 "Trending Anime": libraryData.anime,
-                "Top Rated Anime Classics": libraryData.animeTop
+                "Top Rated Anime Classics": libraryData.animeTop,
+                "New Weekly Releases": [...libraryData.anime].sort(() => Math.random() - 0.5)
             };
         } else if (currentTab === 'tv') {
             categories = {
                 "Trending TV Shows": libraryData.tv,
                 "Binge-Worthy Series": libraryData.binge,
+                "Crime TV Thrillers": libraryData.crimeTv,
                 "Korean Drama Craze": libraryData.kdrama
             };
         } else if (currentTab === 'movies') {
             categories = {
                 "Popular Movies": libraryData.movies,
+                "Action & Adventure": libraryData.action,
+                "Blockbuster Comedies": libraryData.comedy,
+                "Sci-Fi & Fantasy": libraryData.scifi,
+                "Horror Thrillers": libraryData.horror,
                 "Trending Movies of the Week": libraryData.popular
             };
         } else if (currentTab === 'popular') {
             categories = {
                 "New & Trending": libraryData.popular,
-                "Hot on AdamStream": libraryData.binge
+                "Hot on AdamStream": libraryData.binge,
+                "Top Action Flicks": libraryData.action
             };
         } else if (currentTab === 'mylist') {
             categories = {
@@ -1259,7 +1299,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             categories = {
                 ...categories,
                 "Trending Movies": libraryData.movies,
-                "Binge-Worthy Series": libraryData.binge,
+                "Top Action & Adventure": libraryData.action,
+                "Binge-Worthy TV Series": libraryData.binge,
+                "Blockbuster Comedies": libraryData.comedy,
+                "Crime TV Shows": libraryData.crimeTv,
+                "Sci-Fi Masterpieces": libraryData.scifi,
+                "Anime Hits": libraryData.anime
             };
         }
 
@@ -1407,15 +1452,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             else startHeroRotation();
         });
 
-        // Bootstrap data in background while user selects profile
+        // Execute single data load
         loadData();
-        
-        // Hide initial app loader as soon as we reach profile selection
-        if (appLoader) {
-            setTimeout(() => {
-                appLoader.classList.add('hidden');
-            }, 1500); // Small cinematic delay
-        }
 
         if (profileScreen && profileScreen.style.display === 'none') {
             // Already logged in case
