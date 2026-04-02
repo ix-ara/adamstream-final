@@ -115,8 +115,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // Anime-specific server - SUB = Japanese audio, DUB = English audio
     const ANIME_SERVER = {
-        sub: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true`,
-        dub: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&dub=true`
+        sub: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
+        dub: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`
     };
 
     const BASE_URL = 'https://api.themoviedb.org/3';
