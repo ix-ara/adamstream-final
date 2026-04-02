@@ -1294,7 +1294,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             }
         }, 2000);
         
-        const pr1200ofileIcon = document.getElementById('nav-profile-btn');
+        const profileIcon = document.getElementById('nav-profile-btn');
         if (profileIcon) {
             profileIcon.onclick = (e) => {
                 e.preventDefault();
