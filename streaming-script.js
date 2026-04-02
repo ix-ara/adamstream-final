@@ -127,6 +127,31 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         dub: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`
     };
 
+    // Cache AniList MAL ID lookups so we don't re-fetch
+    const anilistCache = {};
+
+    // Fetch MAL ID from AniList by anime title (free API, no key needed)
+    async function fetchMalId(title) {
+        const key = title.toLowerCase().trim();
+        if (anilistCache[key] !== undefined) return anilistCache[key];
+        try {
+            const query = `{Media(search:${JSON.stringify(title)},type:ANIME){idMal}}`;
+            const res = await fetch('https://graphql.anilist.co', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ query }),
+                signal: AbortSignal.timeout(4000)
+            });
+            const data = await res.json();
+            const malId = data?.data?.Media?.idMal || null;
+            anilistCache[key] = malId;
+            return malId;
+        } catch (err) {
+            anilistCache[key] = null;
+            return null;
+        }
+    }
+
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w500';
     const IMG_BG_BASE = 'https://image.tmdb.org/t/p/original';
@@ -770,7 +795,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         };
     }
 
-    function playMedia(item, season = null, episode = null) {
+    async function playMedia(item, season = null, episode = null) {
         if (!item) return;
         currentPlayingItem = item;
         
@@ -791,11 +816,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             
             if (item.isAnime) {
                 if (animeDubMode) {
-                    // DUB: vidlink.pro with dub=true → English dubbed audio
+                    // DUB: vidsrc.xyz with dub=1 → confirmed English dubbed
                     url = ANIME_SERVER.dub(item.tmdb_id, s, e);
                 } else {
-                    // SUB: vidlink.pro default → Japanese audio + English subtitles
-                    url = ANIME_SERVER.sub(item.tmdb_id, s, e);
+                    // SUB: Use AniList to get MAL ID → anime-native Japanese source
+                    if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+                    playerIframe.src = '';
+                    const malId = await fetchMalId(item.title);
+                    if (malId) {
+                        // Use MAL ID with anime-specific player (guaranteed Japanese)
+                        url = `https://2anime.xyz/embed/${malId}-${s}-${e}`;
+                    } else {
+                        // Fallback to cycling sources if AniList lookup fails
+                        url = SUB_SOURCES[currentSubSourceIdx % SUB_SOURCES.length](item.tmdb_id, s, e);
+                    }
                 }
             } else {
                 // TV Default (Subbed): Based on currentServer
