@@ -113,6 +113,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
     };
 
+    // Anime-specific server - SUB = Japanese audio, DUB = English audio
+    const ANIME_SERVER = {
+        sub: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true`,
+        dub: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&dub=true`
+    };
+
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w500';
     const IMG_BG_BASE = 'https://image.tmdb.org/t/p/original';
@@ -122,10 +128,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if (!TMDB_API_KEY) return null;
         try {
             const url = new URL(`${BASE_URL}${endpoint}`);
-            const ANIME_SERVER = {
-        sub: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
-        dub: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=6366f1&dub=true`
-    };
             console.log('Fetching:', url.toString().replace(TMDB_API_KEY, '***'));
             url.searchParams.append('api_key', TMDB_API_KEY);
             url.searchParams.append('language', 'en-US');
@@ -781,11 +783,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             
             if (item.isAnime) {
                 if (animeDubMode) {
-                    // DUB: Vidsrc player natively handles multi-dub where available
-                    url = `https://vidsrc.to/embed/tv/${item.tmdb_id}/${s}/${e}`;
+                    // DUB: vidlink.pro with dub=true → English dubbed audio
+                    url = ANIME_SERVER.dub(item.tmdb_id, s, e);
                 } else {
-                    // SUB: embed.su forces 100% Japanese with English subtitles natively
-                    url = `https://embed.su/embed/tv/${item.tmdb_id}/${s}/${e}`;
+                    // SUB: vidlink.pro default → Japanese audio + English subtitles
+                    url = ANIME_SERVER.sub(item.tmdb_id, s, e);
                 }
             } else {
                 // TV Default (Subbed): Based on currentServer
