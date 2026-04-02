@@ -206,10 +206,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     async function loadData() {
         if (!TMDB_API_KEY) {
-            if(appLoader) appLoader.classList.add('hidden');
+            if(appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
             return;
         }
         if(apiKeyModal) apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
+        if(appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
 
         try {
             // Add a timeout to fetching to prevent hanging indefinitely
@@ -1348,12 +1349,76 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const grid = document.getElementById('grid-container');
         items.forEach((item, idx) => {
             const card = createMovieCard(item, false);
-            // Replace fixed widths with full fluid grid width
             card.classList.remove('w-32', 'md:w-48', 'flex-shrink-0');
             card.classList.add('w-full');
-            card.style.animationDelay = `${idx * 30}ms`;
+            card.style.animationDelay = `${idx * 15}ms`;
             grid.appendChild(card);
         });
+
+        // Massive Background Expansion
+        const categoryMap = {
+            "Trending Movies": "/trending/movie/week",
+            "Trending Anime": "/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc",
+            "Top Rated Anime Classics": "/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000",
+            "Korean Drama Craze": "/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc",
+            "Trending Korean Dramas": "/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc",
+            "Binge-Worthy Series": "/trending/tv/week",
+            "Binge-Worthy TV Series": "/trending/tv/week",
+            "Popular Movies": "/movie/popular",
+            "Trending Movies of the Week": "/movie/popular",
+            "Action & Adventure": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "Top Action & Adventure": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "Top Action Flicks": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "Blockbuster Comedies": "/discover/movie?with_genres=35&sort_by=popularity.desc",
+            "Sci-Fi & Fantasy": "/discover/movie?with_genres=878&sort_by=popularity.desc",
+            "Sci-Fi Masterpieces": "/discover/movie?with_genres=878&sort_by=popularity.desc",
+            "Horror Thrillers": "/discover/movie?with_genres=27&sort_by=popularity.desc",
+            "Crime TV Thrillers": "/discover/tv?with_genres=80&sort_by=popularity.desc",
+            "Crime TV Shows": "/discover/tv?with_genres=80&sort_by=popularity.desc"
+        };
+        
+        const baseEndpoint = categoryMap[title];
+        if (baseEndpoint) {
+            let page = 3;
+            const loadMoreBtn = document.createElement('button');
+            loadMoreBtn.className = 'col-span-full py-5 bg-zinc-900 border border-zinc-800 text-white font-bold rounded-md hover:bg-netflix-red transition-all text-sm uppercase tracking-widest mt-8 shadow-2xl';
+            loadMoreBtn.textContent = 'Load More Titles';
+            grid.appendChild(loadMoreBtn);
+
+            loadMoreBtn.onclick = async () => {
+                loadMoreBtn.innerHTML = 'Connecting to Global Database...';
+                loadMoreBtn.classList.add('opacity-50', 'pointer-events-none');
+                
+                const requests = [
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page}`),
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page+1}`),
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page+2}`)
+                ];
+                page += 3;
+                
+                const responses = await Promise.all(requests);
+                loadMoreBtn.classList.remove('opacity-50', 'pointer-events-none');
+                loadMoreBtn.innerHTML = 'Load More Titles';
+                
+                responses.forEach(res => {
+                    if (res && res.results) {
+                        const newItems = res.results.map(i => formatItem(i, baseEndpoint.includes('movie') ? 'movie' : 'tv'));
+                        newItems.forEach((item, idx) => {
+                            const card = createMovieCard(item, false);
+                            card.classList.remove('w-32', 'md:w-48', 'flex-shrink-0');
+                            card.classList.add('w-full', 'animate-pop-in');
+                            card.style.animationDelay = `${idx * 15}ms`;
+                            grid.insertBefore(card, loadMoreBtn);
+                        });
+                    }
+                });
+            };
+            
+            // Auto-trigger it the first time so the grid instantly feels massive and filled
+            setTimeout(() => {
+                loadMoreBtn.click();
+            }, 600);
+        }
 
         document.getElementById('back-to-browse').onclick = () => {
             updateTabState(currentTab); // Returns to the current row-based view
