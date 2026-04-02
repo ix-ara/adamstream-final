@@ -158,7 +158,12 @@
             opacity: 0.05;
             pointer-events: none;
             z-index: 250;
-            /* Below video-overlay but above main content */
+        }
+
+        @media (max-width: 768px) {
+            .grain-overlay {
+                display: none !important;
+            }
         }
 
         .shadow-glow:hover {
@@ -356,6 +361,10 @@
 
         /* --- MOBILE REFRESH RULES --- */
         @media (max-width: 768px) {
+            #main-nav {
+                background-color: rgba(0, 0, 0, 0.95) !important;
+                backdrop-filter: blur(10px) !important;
+            }
 
             /* Restoring precise swipeable cards instead of massive 45% widths */
             .movie-card {

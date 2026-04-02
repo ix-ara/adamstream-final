@@ -205,7 +205,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             return;
         }
         if(apiKeyModal) apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
-        if(appLoader) appLoader.classList.remove('hidden');
 
         try {
             // Add a timeout to fetching to prevent hanging indefinitely
