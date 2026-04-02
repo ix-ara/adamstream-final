@@ -352,24 +352,31 @@
             color: #000;
             border-color: #fff;
             box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
-        }/* --- MOBILE REFRESH RULES --- */
+        }
+
+        /* --- MOBILE REFRESH RULES --- */
         @media (max-width: 768px) {
+
             /* Makes posters smaller so they fit on the screen */
             .movie-card {
-                width: 45% !important; 
+                width: 45% !important;
                 margin: 5px !important;
                 flex-shrink: 0;
             }
+
             /* Shrinks the giant top banner */
-            .hero-section, #hero {
+            .hero-section,
+            #hero {
                 min-height: 50vh !important;
                 height: 50vh !important;
             }
+
             /* Fixes the title size so it's not huge */
             #hero-title {
                 font-size: 2rem !important;
                 line-height: 1 !important;
             }
+
             /* Hides the desktop menu that overlaps everything */
             .hidden.lg\:flex {
                 display: none !important;
@@ -533,7 +540,7 @@
                     </button>
                     <button id="hero-setup"
                         class="hidden bg-netflix-red text-white px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-red-700 transition-colors shadow-lg">
-                        <span class="material-symbols-outlined">settings</span> Setup API
+                        <span class="material-symbols-outlined">refresh</span> Try Again
                     </button>
                 </div>
             </div>

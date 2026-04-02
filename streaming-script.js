@@ -218,12 +218,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
             const endpoints = [
                 fetchTMDB('/trending/movie/week'), 
+                fetchTMDB('/trending/movie/week?page=2'),
                 fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc'), 
+                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc&page=2'), 
                 fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000'), 
                 fetchTMDB('/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc'), 
+                fetchTMDB('/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc&page=2'), 
                 fetchTMDB('/trending/tv/week'),
+                fetchTMDB('/trending/tv/week?page=2'),
                 fetchTMDB('/discover/tv?sort_by=popularity.desc&without_origin_country=JP|KR'), 
-                fetchTMDB('/movie/popular')
+                fetchTMDB('/movie/popular'),
+                fetchTMDB('/movie/popular?page=2')
             ];
 
             const results = await Promise.all(endpoints.map(promise => 
@@ -233,7 +238,28 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 })
             ));
 
-            const [moviesRes, animeRes, animeTopRes, kdramaRes, bingeRes, tvRes, popularRes] = results;
+            const combine = (res1, res2) => {
+                const combined = { results: [] };
+                if (res1 && res1.results) combined.results.push(...res1.results);
+                if (res2 && res2.results) combined.results.push(...res2.results);
+                return combined.results.length ? combined : null;
+            };
+
+            const [
+                moviesRes1, moviesRes2,
+                animeRes1, animeRes2,
+                animeTopRes,
+                kdramaRes1, kdramaRes2,
+                bingeRes1, bingeRes2,
+                tvRes,
+                popularRes1, popularRes2
+            ] = results;
+
+            const moviesRes = combine(moviesRes1, moviesRes2);
+            const animeRes = combine(animeRes1, animeRes2);
+            const kdramaRes = combine(kdramaRes1, kdramaRes2);
+            const bingeRes = combine(bingeRes1, bingeRes2);
+            const popularRes = combine(popularRes1, popularRes2);
 
             // Check if ALL critical fetches failed
             if (!moviesRes && !animeRes && !kdramaRes && !tvRes) {
@@ -1281,18 +1307,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         // Safety Timeout: Force hide the loader or show delay message if hung
         setTimeout(() => {
             if (appLoader) {
-            appLoader.classList.add('hidden');
-            document.body.style.overflow = 'auto';
-            profileScreen.style.display = 'none';
-            profileScreen.classList.add('hidden');
-        }
+                appLoader.classList.add('hidden');
+            }
+            if (profileScreen && !activeProfile) {
+                profileScreen.style.display = 'none';
+                profileScreen.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
             // If we're still on the logo, show some feedback unconditionally after timeout
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
                 heroTitle.textContent = 'CINEMATIC SERVER DELAY';
-                heroDesc.textContent = 'We are having trouble connecting to the global database. This could be due to a slow connection, an invalid API Key, or running the site from a local file without a server.';
+                heroDesc.textContent = 'We are having trouble connecting to the global database. Click the button below to try loading the server connection again.';
                 if(heroSetup) heroSetup.classList.remove('hidden');
             }
-        }, 2000);
+        }, 8000);
         
         const profileIcon = document.getElementById('nav-profile-btn');
         if (profileIcon) {
@@ -1320,7 +1348,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if(document.getElementById('popular-nav-btn')) document.getElementById('popular-nav-btn').onclick = goPopular;
         if(document.getElementById('mylist-nav-btn')) document.getElementById('mylist-nav-btn').onclick = goMyList;
         
-        if(heroSetup) heroSetup.onclick = () => showApiKeyModal();
+        if(heroSetup) heroSetup.onclick = () => {
+            heroSetup.classList.add('hidden');
+            if (heroTitle) heroTitle.textContent = 'LOADING CONTENT';
+            if (heroDesc) heroDesc.textContent = 'Preparing your premium cinematic experience. Please wait while we synchronize with the global database...';
+            loadData();
+        };
         if(document.getElementById('nav-logo')) document.getElementById('nav-logo').onclick = goHome;
         if(closeModalBtn) closeModalBtn.onclick = closeModal;
         if(exitPlayerBtn) exitPlayerBtn.onclick = exitPlayer;
