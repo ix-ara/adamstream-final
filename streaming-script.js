@@ -100,7 +100,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     let currentAnimeMap = []; // absolute ep index → { season, episode }
     let animeDubMode = false;
     let featuredPool = [];
-    let currentServer = 'alpha'; // alpha, delta, prime, legacy
+    let currentServer = 'prime'; // Default to the highest-quality preferred source
+    const SERVER_PRIORITY = ['prime', 'alpha', 'delta', 'legacy'];
+    let fallbackServerIndex = 0;
 
     // Profile states removed
 
@@ -127,19 +129,46 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
     };
 
-    // Multiple anime sub sources - cycle through if one plays wrong language
-    const SUB_SOURCES = [
+    // Higher-reliability anime source order for sub / dub playback
+    const ANIME_SUB_SOURCES = [
+        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`,
         (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&lang=ja`,
         (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&lang=ja`,
-        (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
-        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`
+        (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`
     ];
-    let currentSubSourceIdx = 0;
+    const ANIME_DUB_SOURCES = [
+        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`,
+        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&dub=1`,
+        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}?dub=1`
+    ];
+    let currentAnimeSourceIdx = 0;
+    let animeSourceFailCount = 0;
 
-    const ANIME_SERVER = {
-        sub: (id, s, e) => SUB_SOURCES[currentSubSourceIdx % SUB_SOURCES.length](id, s, e),
-        dub: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`
-    };
+    function getAnimeSourceUrl(item, season, episode) {
+        const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+        return sources[currentAnimeSourceIdx % sources.length](item.tmdb_id, season, episode);
+    }
+
+    function getAnimeSourceLabel() {
+        const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+        return `${animeDubMode ? 'DUB' : 'SUB'} ${currentAnimeSourceIdx + 1}/${sources.length}`;
+    }
+
+    function updateAnimeToggleButtons() {
+        if (!btnSub || !btnDub) return;
+        btnSub.textContent = animeDubMode ? 'Sub' : getAnimeSourceLabel();
+        btnDub.textContent = animeDubMode ? 'Dub' : 'Dub';
+
+        btnSub.classList.toggle('bg-white', !animeDubMode);
+        btnSub.classList.toggle('text-black', !animeDubMode);
+        btnSub.classList.toggle('bg-zinc-900/80', animeDubMode);
+        btnSub.classList.toggle('text-zinc-300', animeDubMode);
+
+        btnDub.classList.toggle('bg-white', animeDubMode);
+        btnDub.classList.toggle('text-black', animeDubMode);
+        btnDub.classList.toggle('bg-zinc-900/80', !animeDubMode);
+        btnDub.classList.toggle('text-zinc-300', !animeDubMode);
+    }
 
     // Cache AniList MAL ID lookups so we don't re-fetch
     const anilistCache = {};
@@ -167,8 +196,38 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     }
 
     const BASE_URL = 'https://api.themoviedb.org/3';
-    const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w500';
-    const IMG_BG_BASE = 'https://image.tmdb.org/t/p/original';
+    const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w300';
+    const IMG_BG_BASE = 'https://image.tmdb.org/t/p/w780';
+
+    const fetchWithTimeout = (promise, ms = 10000) => {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+        ]);
+    };
+
+    function getServerQueue(selected = currentServer) {
+        const startIndex = SERVER_PRIORITY.indexOf(selected);
+        if (startIndex === -1) return [...SERVER_PRIORITY];
+        return [...SERVER_PRIORITY.slice(startIndex), ...SERVER_PRIORITY.slice(0, startIndex)];
+    }
+
+    function getServerUrl(item, season, episode, serverKey) {
+        const server = SERVERS[serverKey] || SERVERS[currentServer];
+        return item.isMovie ? server.movie(item.tmdb_id) : server.tv(item.tmdb_id, season, episode);
+    }
+
+    function refreshServerButtons() {
+        document.querySelectorAll('.server-btn').forEach(btn => {
+            const key = btn.getAttribute('data-server');
+            if (!key) return;
+            const active = key === currentServer;
+            btn.classList.toggle('bg-netflix-red', active);
+            btn.classList.toggle('text-white', active);
+            btn.classList.toggle('bg-zinc-800', !active);
+            btn.classList.toggle('text-zinc-400', !active);
+        });
+    }
 
     // --- TMDB FETCHING ---
     async function fetchTMDB(endpoint, timeoutMs = 8000) {
@@ -225,103 +284,96 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     async function loadData() {
         if (!TMDB_API_KEY) {
-            if(appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
+            if (appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
             return;
         }
-        if(apiKeyModal) apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
-        if(appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
+        if (apiKeyModal) apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
+        if (appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
 
         try {
-            // Add a timeout to fetching to prevent hanging indefinitely
-            const fetchWithTimeout = (promise, ms = 10000) => {
-                return Promise.race([
-                    promise,
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
-                ]);
+            const essentialEndpoints = {
+                movies: fetchTMDB('/trending/movie/week'),
+                tv: fetchTMDB('/trending/tv/week'),
+                anime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc'),
+                kdrama: fetchTMDB('/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc'),
+                popular: fetchTMDB('/movie/popular'),
+                binge: fetchTMDB('/discover/tv?sort_by=popularity.desc&without_origin_country=JP|KR')
             };
 
-            const endpoints = [
-                // General
-                fetchTMDB('/trending/movie/week'), 
-                fetchTMDB('/trending/movie/week?page=2'),
-                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc'), 
-                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc&page=2'), 
-                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000'), 
-                fetchTMDB('/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc'), 
-                fetchTMDB('/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc&page=2'), 
-                fetchTMDB('/trending/tv/week'),
-                fetchTMDB('/trending/tv/week?page=2'),
-                fetchTMDB('/discover/tv?sort_by=popularity.desc&without_origin_country=JP|KR'), 
-                // Movies Genres
-                fetchTMDB('/movie/popular'),
-                fetchTMDB('/movie/popular?page=2'),
-                fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'), // Action
-                fetchTMDB('/discover/movie?with_genres=35&sort_by=popularity.desc'), // Comedy  
-                fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'), // Horror
-                fetchTMDB('/discover/movie?with_genres=878&sort_by=popularity.desc'), // SciFi
-                fetchTMDB('/discover/tv?with_genres=80&sort_by=popularity.desc'), // Crime TV
-                // New Focused Genres (Detailed Mapping)
-                fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'), // Action Movies (duplicate of 12 for clarity)
-                fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'), // Horror Movies (duplicate of 14 for clarity)
-                fetchTMDB('/discover/movie?with_genres=10749&sort_by=popularity.desc'), // Romance Movies
-                fetchTMDB('/discover/tv?with_genres=10759&sort_by=popularity.desc'), // Action TV
-                fetchTMDB('/discover/tv?with_genres=9648&sort_by=popularity.desc'), // Horror TV (Mystery)
-                fetchTMDB('/discover/tv?with_genres=10766&sort_by=popularity.desc'), // Romance TV
-                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc'), // Action Anime
-                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc'), // Horror Anime
-                fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc'), // Romance Anime
-                fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc'), // Action K-Drama
-                fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc'), // Horror K-Drama
-                fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc') // Romance K-Drama
-            ];
+            const essentialResults = await Promise.allSettled(Object.values(essentialEndpoints).map(promise => fetchWithTimeout(promise, 10000)));
+            const [moviesRes, tvRes, animeRes, kdramaRes, popularRes, bingeRes] = essentialResults.map(result => result.status === 'fulfilled' ? result.value : null);
 
-            const results = await Promise.all(endpoints.map(promise => 
-                fetchWithTimeout(promise).catch(e => {
-                    console.warn(`Fetch failed:`, e);
-                    return null;
-                })
-            ));
+            if (moviesRes) libraryData.movies = moviesRes.results.map(i => formatItem(i, 'movie'));
+            if (tvRes) libraryData.tv = tvRes.results.map(i => formatItem(i, 'tv'));
+            if (animeRes) libraryData.anime = animeRes.results.map(i => formatItem(i, 'anime'));
+            if (kdramaRes) libraryData.kdrama = kdramaRes.results.map(i => formatItem(i, 'tv'));
+            if (popularRes) libraryData.popular = popularRes.results.map(i => formatItem(i, 'movie'));
+            if (bingeRes) libraryData.binge = bingeRes.results.map(i => formatItem(i, 'tv'));
 
-            const combine = (res1, res2) => {
-                const combined = { results: [] };
-                if (res1 && res1.results) combined.results.push(...res1.results);
-                if (res2 && res2.results) combined.results.push(...res2.results);
-                return combined.results.length ? combined : null;
+            if (!moviesRes && !tvRes && !animeRes && !kdramaRes && !popularRes && !bingeRes) {
+                throw new Error('Essential TMDB requests all failed');
+            }
+
+            if (libraryData.movies.length === 0) {
+                libraryData.movies = [
+                    { id: 101, tmdb_id: 823464, title: "Godzilla x Kong", year: "2024", rating: "7.2", overview: "The epic battle continues!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000" },
+                    { id: 102, tmdb_id: 1022789, title: "Inside Out 2", year: "2024", rating: "8.1", overview: "Emotions are back!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2000" }
+                ];
+            }
+            if (libraryData.tv.length === 0) {
+                libraryData.tv = [
+                    { id: 901, tmdb_id: 1396, title: "Breaking Bad", year: "2008", rating: "9.5", overview: "A chemistry teacher turned kingpin.", isMovie: false, isAnime: false, poster: "https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000" }
+                ];
+            }
+
+            updateTabState(currentTab);
+            setTimeout(loadDeferredData, 800);
+        } catch (error) {
+            console.error('Critical load failure:', error);
+            libraryData.movies = libraryData.movies.length ? libraryData.movies : [{ id: 101, title: "Offline Library", overview: "Check your connection and TMDB key.", year: "NA", rating: "NA", isMovie: true }];
+            updateTabState(currentTab);
+            if (heroSetup) heroSetup.classList.remove('hidden');
+        } finally {
+            if (appLoader) {
+                setTimeout(() => {
+                    appLoader.classList.add('hidden');
+                }, 500);
+            }
+        }
+    }
+
+    async function loadDeferredData() {
+        try {
+            const deferredEndpoints = {
+                action: fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'),
+                comedy: fetchTMDB('/discover/movie?with_genres=35&sort_by=popularity.desc'),
+                horror: fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'),
+                scifi: fetchTMDB('/discover/movie?with_genres=878&sort_by=popularity.desc'),
+                crimeTv: fetchTMDB('/discover/tv?with_genres=80&sort_by=popularity.desc'),
+                actionMovies: fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'),
+                horrorMovies: fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'),
+                romanceMovies: fetchTMDB('/discover/movie?with_genres=10749&sort_by=popularity.desc'),
+                actionTV: fetchTMDB('/discover/tv?with_genres=10759&sort_by=popularity.desc'),
+                horrorTV: fetchTMDB('/discover/tv?with_genres=9648&sort_by=popularity.desc'),
+                romanceTV: fetchTMDB('/discover/tv?with_genres=10766&sort_by=popularity.desc'),
+                actionAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc'),
+                horrorAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc'),
+                romanceAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc'),
+                actionKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc'),
+                horrorKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc'),
+                romanceKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc'),
+                animeTop: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000')
             };
 
-            const [
-                moviesRes1, moviesRes2,
-                animeRes1, animeRes2,
-                animeTopRes,
-                kdramaRes1, kdramaRes2,
-                bingeRes1, bingeRes2,
-                tvRes,
-                popularRes1, popularRes2,
-                actionRes,
-                comedyRes,
-                horrorRes,
-                scifiRes,
-                crimeTvRes,
-                // New Results
-                actionMoviesRes, horrorMoviesRes, romanceMoviesRes,
-                actionTVRes, horrorTVRes, romanceTVRes,
-                actionAnimeRes, horrorAnimeRes, romanceAnimeRes,
-                actionKDramaRes, horrorKDramaRes, romanceKDramaRes
-            ] = results;
-
-            const moviesRes = combine(moviesRes1, moviesRes2);
-            const animeRes = combine(animeRes1, animeRes2);
-            const kdramaRes = combine(kdramaRes1, kdramaRes2);
-            const bingeRes = combine(bingeRes1, bingeRes2);
-            const popularRes = combine(popularRes1, popularRes2);
+            const deferredResults = await Promise.allSettled(Object.values(deferredEndpoints).map(promise => fetchWithTimeout(promise, 10000)));
+            const deferredValues = deferredResults.map(result => result.status === 'fulfilled' ? result.value : null);
+            const [actionRes, comedyRes, horrorRes, scifiRes, crimeTvRes, actionMoviesRes, horrorMoviesRes, romanceMoviesRes, actionTVRes, horrorTVRes, romanceTVRes, actionAnimeRes, horrorAnimeRes, romanceAnimeRes, actionKDramaRes, horrorKDramaRes, romanceKDramaRes, animeTopRes] = deferredValues;
 
             if (actionRes) libraryData.action = actionRes.results.map(i => formatItem(i, 'movie'));
             if (comedyRes) libraryData.comedy = comedyRes.results.map(i => formatItem(i, 'movie'));
             if (horrorRes) libraryData.horror = horrorRes.results.map(i => formatItem(i, 'movie'));
             if (scifiRes) libraryData.scifi = scifiRes.results.map(i => formatItem(i, 'movie'));
             if (crimeTvRes) libraryData.crimeTv = crimeTvRes.results.map(i => formatItem(i, 'tv'));
-
-            // Map New Genres
             if (actionMoviesRes) libraryData.actionMovies = actionMoviesRes.results.map(i => formatItem(i, 'movie'));
             if (horrorMoviesRes) libraryData.horrorMovies = horrorMoviesRes.results.map(i => formatItem(i, 'movie'));
             if (romanceMoviesRes) libraryData.romanceMovies = romanceMoviesRes.results.map(i => formatItem(i, 'movie'));
@@ -334,48 +386,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (actionKDramaRes) libraryData.actionKDrama = actionKDramaRes.results.map(i => formatItem(i, 'tv'));
             if (horrorKDramaRes) libraryData.horrorKDrama = horrorKDramaRes.results.map(i => formatItem(i, 'tv'));
             if (romanceKDramaRes) libraryData.romanceKDrama = romanceKDramaRes.results.map(i => formatItem(i, 'tv'));
-
-            // Check if ALL critical fetches failed
-            if (!moviesRes && !animeRes && !kdramaRes && !tvRes) {
-                throw new Error('All fetches failed');
-            }
-
-            if (moviesRes) libraryData.movies = moviesRes.results.map(i => formatItem(i, 'movie'));
-            if (animeRes) libraryData.anime = animeRes.results.map(i => formatItem(i, 'anime'));
             if (animeTopRes) libraryData.animeTop = animeTopRes.results.map(i => formatItem(i, 'anime'));
-            if (kdramaRes) libraryData.kdrama = kdramaRes.results.map(i => formatItem(i, 'tv'));
-            if (bingeRes) libraryData.binge = bingeRes.results.map(i => formatItem(i, 'tv'));
-            if (tvRes) libraryData.tv = tvRes.results.map(i => formatItem(i, 'tv'));
-            if (popularRes) libraryData.popular = popularRes.results.map(i => formatItem(i, 'movie'));
 
-            // Fallback for missing data
-            if(libraryData.movies.length === 0) {
-                libraryData.movies = [
-                    { id: 101, tmdb_id: 823464, title: "Godzilla x Kong", year: "2024", rating: "7.2", overview: "The epic battle continues!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000" },
-                    { id: 102, tmdb_id: 1022789, title: "Inside Out 2", year: "2024", rating: "8.1", overview: "Emotions are back!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2000" }
-                ];
-            }
-            if(libraryData.tv.length === 0) {
-                libraryData.tv = [
-                    { id: 901, tmdb_id: 1396, title: "Breaking Bad", year: "2008", rating: "9.5", overview: "A chemistry teacher turned kingpin.", isMovie: false, isAnime: false, poster: "https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000" }
-                ];
-            }
-
-            updateTabState(currentTab);
+            renderLibrary();
         } catch (error) {
-            console.error('Critical load failure:', error);
-            // Even if everything crashes, show some fallback UI
-            libraryData.movies = libraryData.movies.length ? libraryData.movies : [{ id: 101, title: "Offline Library", overview: "Check your connection and TMDB key.", year: "NA", rating: "NA", isMovie: true }];
-            updateTabState(currentTab);
-            
-            // Show setup button if hidden
-            if(heroSetup) heroSetup.classList.remove('hidden');
-        } finally {
-            if(appLoader) {
-                setTimeout(() => {
-                    appLoader.classList.add('hidden');
-                }, 500);
-            }
+            console.warn('Deferred load failed:', error);
         }
     }
 
@@ -842,61 +857,48 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     async function playMedia(item, season = null, episode = null) {
         if (!item) return;
+        const isDifferentAnime = item.isAnime && (!currentPlayingItem || currentPlayingItem.tmdb_id !== item.tmdb_id);
+        if (isDifferentAnime) {
+            currentAnimeSourceIdx = 0;
+            animeSourceFailCount = 0;
+        }
         currentPlayingItem = item;
-        
+
+        const s = season || 1;
+        const e = episode || 1;
         let url = '';
         let subtitle = '';
-        const server = SERVERS[currentServer] || SERVERS.alpha;
 
         if (item.isMovie) {
-            url = server.movie(item.tmdb_id);
+            url = getServerUrl(item, s, e, currentServer);
             subtitle = '';
             if (playerEpisodeSelector) {
                 playerEpisodeSelector.classList.add('hidden');
                 playerEpisodeSelector.classList.remove('flex');
             }
         } else {
-            const s = season || 1;
-            const e = episode || 1;
-            
             if (item.isAnime) {
-                if (animeDubMode) {
-                    // DUB: vidsrc.xyz with dub=1 → confirmed English dubbed
-                    url = ANIME_SERVER.dub(item.tmdb_id, s, e);
-                } else {
-                    // SUB: Use the currently selected source from the cycle
-                    if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
-                    playerIframe.src = '';
-                    
-                    // We can still fetch the malId just in case we want to use specialized sources in the future, 
-                    // but for now, we follow the cycling source order for reliability.
-                    const malId = await fetchMalId(item.title);
-                    url = SUB_SOURCES[currentSubSourceIdx % SUB_SOURCES.length](item.tmdb_id, s, e);
-                }
+                url = getAnimeSourceUrl(item, s, e);
             } else {
-                // TV Default (Subbed): Based on currentServer
-                url = server.tv(item.tmdb_id, s, e);
-                // Inject Kurdish Subtitle if enabled and server is Alpha (VidLink)
+                url = getServerUrl(item, s, e, currentServer);
                 if (currentKurdishSub && currentServer === 'alpha') {
                     url += `&subtitle=${KURDISH_VTT_DATA_URI}&subtitleLabel=Kurdish%20(Sorani)`;
                 }
             }
 
-            // Safe subtitle calculation
             let epLabel = e;
             if (item.isAnime && currentAnimeMap && currentAnimeMap.length > 0) {
-                 const idx = currentAnimeMap.findIndex(m => m && m.season === s && m.episode === e);
-                 if (idx !== -1) epLabel = idx + 1;
+                const idx = currentAnimeMap.findIndex(m => m && m.season === s && m.episode === e);
+                if (idx !== -1) epLabel = idx + 1;
             }
             subtitle = item.isAnime ? ` - Ep ${epLabel}` : ` - S${s} E${e}`;
-            
+
             if (playerEpisodeSelector) {
                 playerEpisodeSelector.classList.remove('hidden');
                 playerEpisodeSelector.classList.add('flex');
                 populatePlayerSelectors(s, e);
             }
 
-            // Show Sub/Dub toggle only for anime
             if (playerDubToggle) {
                 if (item.isAnime) {
                     playerDubToggle.classList.remove('hidden');
@@ -908,22 +910,60 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             }
         }
 
-        playerIframe.src = url;
-        
-        // If DUB fails (media unavailable), silently fall back to sub source
-        playerIframe.onerror = () => {
-            if (currentPlayingItem && currentPlayingItem.isAnime && animeDubMode) {
-                playerIframe.src = ANIME_SERVER.sub(currentPlayingItem.tmdb_id, season || 1, episode || 1);
+        playerIframe.onerror = async () => {
+            if (!currentPlayingItem) return;
+
+            if (currentPlayingItem.isAnime) {
+                animeSourceFailCount += 1;
+                const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+                currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
+                updateAnimeToggleButtons();
+
+                if (animeSourceFailCount <= sources.length * 2) {
+                    playerIframe.src = sources[currentAnimeSourceIdx](currentPlayingItem.tmdb_id, s, e);
+                    return;
+                }
+
+                // After exhausting the current mode, fall back to the opposite mode once
+                if (animeDubMode) {
+                    animeDubMode = false;
+                    currentAnimeSourceIdx = 0;
+                    updateAnimeToggleButtons();
+                    playerIframe.src = getAnimeSourceUrl(currentPlayingItem, s, e);
+                    return;
+                }
+
+                playerTitle.textContent = `${currentPlayingItem.title} - Playback unavailable`;
+                if (playerLoader) {
+                    playerLoader.classList.add('opacity-0', 'pointer-events-none');
+                }
+                return;
+            }
+
+            const queue = getServerQueue(currentServer);
+            const currentIndex = queue.indexOf(currentServer);
+            const nextServer = queue[currentIndex + 1];
+            if (nextServer) {
+                currentServer = nextServer;
+                refreshServerButtons();
+                playerIframe.src = getServerUrl(currentPlayingItem, s, e, currentServer);
             }
         };
+
+        playerIframe.onload = () => {
+            if (playerLoader) {
+                playerLoader.classList.add('opacity-0');
+                playerLoader.classList.add('pointer-events-none');
+            }
+        };
+
+        playerIframe.src = url;
         playerTitle.textContent = item.title + subtitle;
-        
+
         videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
         document.body.style.overflow = 'hidden';
-
         playerTitleOverlay.classList.remove('opacity-0');
-        
-        // Handle loader
+
         if (playerLoader) {
             playerLoader.classList.remove('opacity-0', 'pointer-events-none');
             setTimeout(() => {
@@ -932,7 +972,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
 
         setTimeout(() => {
-             playerTitleOverlay.classList.add('opacity-0');
+            playerTitleOverlay.classList.add('opacity-0');
         }, 5000);
     }
 
@@ -948,20 +988,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     if (btnSub) {
         btnSub.addEventListener('click', () => {
             if (!animeDubMode) {
-                // Already on sub - cycle to next sub source
-                currentSubSourceIdx = (currentSubSourceIdx + 1) % SUB_SOURCES.length;
-                btnSub.textContent = `SUB ${currentSubSourceIdx + 1}`;
+                currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % ANIME_SUB_SOURCES.length;
             } else {
                 animeDubMode = false;
-                currentSubSourceIdx = 0;
-                btnSub.textContent = 'SUB';
+                currentAnimeSourceIdx = 0;
             }
-            btnSub.classList.add('bg-netflix-red', 'text-white');
-            btnSub.classList.remove('text-zinc-400');
-            btnDub.classList.remove('bg-netflix-red', 'text-white');
-            btnDub.classList.add('text-zinc-400');
+            animeSourceFailCount = 0;
+            updateAnimeToggleButtons();
             if (dubHint) dubHint.classList.add('hidden');
-            // Reload stream with new source
             if (currentPlayingItem) {
                 const s = playerSeasonSelect ? Number(playerSeasonSelect.value) : 1;
                 const e = playerEpisodeSelect ? Number(playerEpisodeSelect.value) : 1;
@@ -973,10 +1007,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     if (btnDub) {
         btnDub.onclick = () => {
             animeDubMode = true;
-            btnDub.classList.add('bg-netflix-red', 'text-white');
-            btnDub.classList.remove('text-zinc-400');
-            btnSub.classList.remove('bg-netflix-red', 'text-white');
-            btnSub.classList.add('text-zinc-400');
+            currentAnimeSourceIdx = 0;
+            animeSourceFailCount = 0;
+            updateAnimeToggleButtons();
             if (dubHint) {
                 dubHint.classList.remove('hidden');
                 dubHint.classList.add('flex');
@@ -994,17 +1027,10 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     document.querySelectorAll('.server-btn').forEach(btn => {
         btn.onclick = (e) => {
             const serverKey = e.target.getAttribute('data-server');
+            if (!serverKey) return;
             currentServer = serverKey;
+            refreshServerButtons();
 
-            // Update UI
-            document.querySelectorAll('.server-btn').forEach(b => {
-                b.classList.remove('bg-netflix-red', 'text-white');
-                b.classList.add('bg-zinc-800', 'text-zinc-400');
-            });
-            e.target.classList.add('bg-netflix-red', 'text-white');
-            e.target.classList.remove('bg-zinc-800', 'text-zinc-400');
-
-            // Refresh Player
             if (currentPlayingItem) {
                 const s = playerSeasonSelect ? Number(playerSeasonSelect.value) : 1;
                 const e = playerEpisodeSelect ? Number(playerEpisodeSelect.value) : 1;
@@ -1297,10 +1323,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 });
             };
             
-            // Auto-trigger it the first time so the grid instantly feels massive and filled
-            setTimeout(() => {
-                loadMoreBtn.click();
-            }, 600);
         }
 
         document.getElementById('back-to-browse').onclick = () => {
@@ -1422,6 +1444,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             else startHeroRotation();
         });
 
+        refreshServerButtons();
         // Execute single data load
         loadData();
     }

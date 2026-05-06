@@ -581,36 +581,36 @@
             <!-- Server Switcher -->
             <div class="flex items-center gap-1.5 mr-3 pr-3 border-r border-white/10">
                 <span class="text-[10px] text-zinc-500 font-black uppercase tracking-tighter mr-1">Server</span>
-                <div id="server-switcher" class="flex items-center gap-1">
+                <div id="server-switcher" class="flex items-center gap-2">
                     <button data-server="alpha"
-                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-netflix-red text-white uppercase transition-all">Alpha</button>
+                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Alpha</button>
                     <button data-server="delta"
-                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-white uppercase transition-all">Delta</button>
+                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Delta</button>
                     <button data-server="prime"
-                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-white uppercase transition-all">Prime</button>
+                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Prime</button>
                     <button data-server="legacy"
-                        class="server-btn text-[10px] font-black px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-white uppercase transition-all">Legacy</button>
+                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Legacy</button>
                 </div>
             </div>
 
             <span class="text-zinc-300 text-xs font-bold uppercase tracking-wider">EPISODES</span>
             <select id="player-season-select"
-                class="bg-zinc-900 text-white text-sm border border-zinc-700 rounded px-2 py-1 outline-none cursor-pointer font-bold">
+                class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
             </select>
             <span class="text-zinc-500 font-bold">/</span>
             <select id="player-episode-select"
-                class="bg-zinc-900 text-white text-sm border border-zinc-700 rounded px-2 py-1 outline-none cursor-pointer font-bold">
+                class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
             </select>
             <button id="player-sub-btn"
-                class="material-symbols-outlined text-zinc-400 hover:text-white transition-all ml-2"
-                title="Kurdish Subtitles">subtitles</button>
+                class="text-zinc-300 hover:text-white transition-all ml-2 bg-white/5 border border-white/10 rounded-full px-3 py-2 shadow-sm"
+                title="Toggle Kurdish subtitles">subtitles</button>
             <!-- Sub/Dub toggle - only visible for anime -->
             <div id="player-dub-toggle"
-                class="hidden items-center gap-1 ml-1 bg-zinc-800 rounded-full p-0.5 border border-zinc-700">
+                class="hidden items-center gap-2 ml-1 bg-white/5 rounded-full p-1 border border-white/10 shadow-2xl backdrop-blur-xl">
                 <button id="btn-sub"
-                    class="text-xs font-black px-3 py-1 rounded-full bg-netflix-red text-white transition-all uppercase">Sub</button>
+                    class="text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-white text-black shadow-sm transition-all uppercase">SUB</button>
                 <button id="btn-dub"
-                    class="text-xs font-black px-3 py-1 rounded-full text-zinc-400 hover:text-white transition-all uppercase">Dub</button>
+                    class="text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm transition-all uppercase">DUB</button>
             </div>
         </div>
 
