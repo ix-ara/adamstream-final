@@ -483,7 +483,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const jikanIds = aniListIds.malId ? {} : await fetchJikanIds(candidates);
         const ids = {
             anilistId: aniListIds.anilistId || null,
-            malId: aniListIds.malId || jikanIds.malId || null,
+            malId: aniListIds.malId || item.malId || jikanIds.malId || null,
             imdbId: externalIds.imdbId || null,
             tvdbId: externalIds.tvdbId || null,
             useSeasonEpisode: Boolean(aniListIds.useSeasonEpisode || jikanIds.useSeasonEpisode)
@@ -495,6 +495,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w300';
     const IMG_BG_BASE = 'https://image.tmdb.org/t/p/w780';
+    const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
+    const ANIME_PLACEHOLDER_POSTER = 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=500';
+    const ANIME_PLACEHOLDER_BACKDROP = 'https://images.unsplash.com/photo-1541562232579-512a21360020?q=80&w=1600';
 
     const fetchWithTimeout = (promise, ms = 10000) => {
         return Promise.race([
@@ -579,16 +582,129 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
     }
 
+    async function fetchJikan(endpoint, params = {}, timeoutMs = 8000) {
+        try {
+            const url = new URL(`${JIKAN_BASE_URL}${endpoint}`);
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    url.searchParams.set(key, value);
+                }
+            });
+
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeoutMs);
+            const res = await fetch(url.toString(), { signal: controller.signal });
+            clearTimeout(id);
+
+            if (!res.ok) throw new Error('Jikan API Error');
+            return await res.json();
+        } catch (error) {
+            console.warn('Jikan fallback failed:', endpoint, error);
+            return null;
+        }
+    }
+
+    function formatJikanAnime(item) {
+        if (!item || !item.mal_id) return null;
+        const image = item.images?.webp?.large_image_url || item.images?.jpg?.large_image_url || item.images?.jpg?.image_url || ANIME_PLACEHOLDER_POSTER;
+        const year = item.year || (item.aired?.from || '').substring(0, 4) || 'Anime';
+        const episodes = Number(item.episodes) || (item.type === 'Movie' ? 1 : 12);
+
+        return {
+            id: `mal-${item.mal_id}`,
+            tmdb_id: null,
+            malId: item.mal_id,
+            isMovie: false,
+            isAnime: true,
+            title: item.title_english || item.title || item.title_japanese || 'Untitled Anime',
+            originalTitle: item.title || item.title_japanese || item.title_english || 'Untitled Anime',
+            overview: item.synopsis || item.background || 'No description available for this anime.',
+            poster: image,
+            backdrop: item.trailer?.images?.maximum_image_url || item.trailer?.images?.large_image_url || image || ANIME_PLACEHOLDER_BACKDROP,
+            rating: item.score ? Number(item.score).toFixed(1) : 'NR',
+            year,
+            animeEpisodes: episodes,
+            animeType: item.type || 'TV',
+            genres: (item.genres || []).map(genre => genre.name).filter(Boolean)
+        };
+    }
+
+    function mergeAnimeLists(...lists) {
+        const seen = new Set();
+        return lists
+            .flat()
+            .filter(Boolean)
+            .filter(item => {
+                const key = item.malId ? `mal:${item.malId}` : `${item.tmdb_id || item.id || item.title}`.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+    }
+
+    async function fetchJikanAnimeList(endpoint, params = {}) {
+        const data = await fetchJikan(endpoint, { sfw: true, limit: 24, ...params });
+        return (data?.data || []).map(formatJikanAnime).filter(Boolean);
+    }
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function loadAnimeFallbackData(includeGenres = false) {
+        const requests = [
+            () => fetchJikanAnimeList('/seasons/now'),
+            () => fetchJikanAnimeList('/top/anime', { type: 'tv', filter: 'bypopularity' }),
+            () => fetchJikanAnimeList('/top/anime', { type: 'tv', filter: 'favorite' })
+        ];
+
+        if (includeGenres) {
+            requests.push(
+                () => fetchJikanAnimeList('/anime', { genres: 1, order_by: 'popularity', sort: 'asc' }),
+                () => fetchJikanAnimeList('/anime', { genres: 14, order_by: 'popularity', sort: 'asc' }),
+                () => fetchJikanAnimeList('/anime', { genres: 22, order_by: 'popularity', sort: 'asc' })
+            );
+        }
+
+        const values = [];
+        for (const request of requests) {
+            try {
+                values.push(await request());
+            } catch (error) {
+                values.push([]);
+            }
+            await delay(250);
+        }
+
+        libraryData.anime = mergeAnimeLists(values[0], values[1], libraryData.anime).slice(0, 40);
+        libraryData.animeTop = mergeAnimeLists(values[2], values[1], libraryData.animeTop).slice(0, 40);
+
+        if (includeGenres) {
+            libraryData.actionAnime = mergeAnimeLists(libraryData.actionAnime, values[3], libraryData.anime).slice(0, 40);
+            libraryData.horrorAnime = mergeAnimeLists(libraryData.horrorAnime, values[4], libraryData.anime).slice(0, 40);
+            libraryData.romanceAnime = mergeAnimeLists(libraryData.romanceAnime, values[5], libraryData.anime).slice(0, 40);
+        }
+    }
+
     async function ensureSeasonData(item) {
         if (!item || item.isMovie) return [];
-        if (currentSeasonsItemId === item.tmdb_id && currentTvSeasons.length > 0) {
+        const seasonCacheId = item.tmdb_id || item.id;
+        if (currentSeasonsItemId === seasonCacheId && currentTvSeasons.length > 0) {
             return currentTvSeasons;
         }
 
-        const details = await fetchTvDetails(item.tmdb_id);
-        const seasons = (details?.seasons || []).filter(s => s.season_number > 0);
+        const details = item.tmdb_id ? await fetchTvDetails(item.tmdb_id) : null;
+        let seasons = (details?.seasons || []).filter(s => s.season_number > 0);
 
-        currentSeasonsItemId = item.tmdb_id;
+        if (item.isAnime && seasons.length === 0) {
+            seasons = [{
+                season_number: 1,
+                name: item.animeType || 'Season 1',
+                episode_count: Number(item.animeEpisodes) || 12
+            }];
+        }
+
+        currentSeasonsItemId = seasonCacheId;
         currentTvSeasons = seasons;
         currentAnimeMap = [];
         currentAnimeSeasonNames = {};
@@ -634,7 +750,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (popularRes) libraryData.popular = popularRes.results.map(i => formatItem(i, 'movie'));
             if (bingeRes) libraryData.binge = bingeRes.results.map(i => formatItem(i, 'tv'));
 
-            if (!moviesRes && !tvRes && !animeRes && !kdramaRes && !popularRes && !bingeRes) {
+            await loadAnimeFallbackData(false);
+
+            if (!moviesRes && !tvRes && !animeRes && !kdramaRes && !popularRes && !bingeRes && libraryData.anime.length === 0) {
                 throw new Error('Essential TMDB requests all failed');
             }
 
@@ -712,9 +830,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (romanceKDramaRes) libraryData.romanceKDrama = romanceKDramaRes.results.map(i => formatItem(i, 'tv'));
             if (animeTopRes) libraryData.animeTop = animeTopRes.results.map(i => formatItem(i, 'anime'));
 
+            if (
+                libraryData.actionAnime.length === 0 ||
+                libraryData.horrorAnime.length === 0 ||
+                libraryData.romanceAnime.length === 0 ||
+                libraryData.animeTop.length === 0
+            ) {
+                await loadAnimeFallbackData(true);
+            }
+
             renderLibrary();
         } catch (error) {
             console.warn('Deferred load failed:', error);
+            await loadAnimeFallbackData(true);
+            renderLibrary();
         }
     }
 
@@ -1035,7 +1164,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         document.getElementById('modal-rating').textContent = item.rating;
         document.getElementById('modal-duration').textContent = item.isMovie ? 'Movie' : 'TV Series';
         document.getElementById('modal-cast').textContent = 'Loading...';
-        document.getElementById('modal-genre').textContent = item.isMovie ? 'Film' : 'Series';
+        document.getElementById('modal-genre').textContent = item.genres?.length ? item.genres.join(', ') : (item.isMovie ? 'Film' : (item.isAnime ? 'Anime' : 'Series'));
 
         const epSection = document.getElementById('episodes-section');
         const list = document.getElementById('episodes-list');
@@ -1675,7 +1804,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 
                 responses.forEach(res => {
                     if (res && res.results) {
-                        const newItems = res.results.map(i => formatItem(i, baseEndpoint.includes('movie') ? 'movie' : 'tv'));
+                        const forceType = title.toLowerCase().includes('anime') ? 'anime' : (baseEndpoint.includes('movie') ? 'movie' : 'tv');
+                        const newItems = res.results.map(i => formatItem(i, forceType));
                         newItems.forEach((item, idx) => {
                             const card = createMovieCard(item, false);
                             card.classList.remove('w-32', 'md:w-48', 'flex-shrink-0');
@@ -1704,14 +1834,19 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
 
         const data = await fetchSearch(query);
-        if(!data || !data.results || data.results.length === 0) {
+        let items = (data?.results || [])
+            .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+            .map(r => formatItem(r, r.media_type));
+
+        if (currentTab === 'anime' || items.length === 0) {
+            const animeMatches = await fetchJikanAnimeList('/anime', { q: query, order_by: 'popularity', sort: 'asc' });
+            items = currentTab === 'anime' ? mergeAnimeLists(animeMatches, items.filter(item => item.isAnime)) : mergeAnimeLists(items, animeMatches);
+        }
+
+        if(items.length === 0) {
             contentRows.innerHTML = '<div class="px-12 py-32 text-zinc-600 text-center text-2xl font-black italic tracking-widest uppercase">No cinematic matches for "' + query + '"</div>';
             return;
         }
-
-        const items = data.results
-            .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
-            .map(r => formatItem(r, r.media_type));
             
         contentRows.innerHTML = '';
         const row = createRow(`Search Results for "${query}"`, items, false);
