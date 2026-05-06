@@ -153,66 +153,29 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '547c2cf5311a8f449945
     // NOTE: VidLink.pro and public Consumet APIs require a local server (localhost:8080)
     // and are therefore excluded. VidSrc.cc / vidsrc.icu work as pure iframes.
 
-    // SUB SOURCES — Pure iframe embeds (AniKai style)
+    // SUB SOURCES — Japanese VA
     const ANIME_SUB_SOURCES = [
-        // 1. VidSrc.to (AniList ID) — Exact AniKai style mapping
         {
-            name: 'VidSrc.to Sub',
+            name: 'VidSrc ICU',
             needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.to/embed/anime/${anilistId}/${animeEpisode}` : null
+            build: async ({ malId, animeEpisode }) => malId ? `https://vidsrc.icu/embed/anime/${malId}/${animeEpisode}/sub` : null
         },
-        // 2. VidSrc.to (TMDB Fallback)
         {
-            name: 'VidSrc.to TV',
+            name: 'VidSrc.to',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
-        },
-        // 2. VidSrc.me — Extremely stable fallback
-        {
-            name: 'VidSrc.me Sub',
-            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.me/embed/tv/${tmdbId}/${season}/${episode}` : null
-        },
-        // 3. Vidsrc.cc (AniList ID) — Only as a backup
-        {
-            name: 'VidSrc.cc Sub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub` : null
-        },
-        // 4. MultiEmbed
-        {
-            name: 'MultiEmbed Sub',
-            build: ({ tmdbId, season, episode }) => tmdbId ? `https://multiembed.mov/directstream.php?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` : null
         }
     ];
 
-    // DUB SOURCES — Pure iframe embeds
+    // DUB SOURCES — English VA
     const ANIME_DUB_SOURCES = [
-        // 1. VidSrc.to Dub (AniList ID)
         {
-            name: 'VidSrc.to Dub',
+            name: 'VidSrc ICU',
             needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.to/embed/anime/${anilistId}/${animeEpisode}` : null
+            build: async ({ malId, animeEpisode }) => malId ? `https://vidsrc.icu/embed/anime/${malId}/${animeEpisode}/dub` : null
         },
-        // 2. VidSrc.to Dub (TMDB Fallback)
         {
-            name: 'VidSrc.to TV',
+            name: 'VidSrc.to',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
-        },
-        // 2. VidSrc.me Dub
-        {
-            name: 'VidSrc.me Dub',
-            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.me/embed/tv/${tmdbId}/${season}/${episode}` : null
-        },
-        // 3. VidSrc ICU (Reliable for Dubs)
-        {
-            name: 'VidSrc ICU Dub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/1` : null
-        },
-        // 4. Cinezo Dub
-        {
-            name: 'Cinezo Dub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=true` : null
         }
     ];
 
@@ -252,12 +215,13 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '547c2cf5311a8f449945
         let idsResolved = false;
 
         for (let i = 0; i < sources.length; i++) {
-            const sourceIndex = currentAnimeSourceIdx % sources.length;
+            const sourceIndex = i; // Request says keep 2 reliable ones, we should try both in order
             const source = sources[sourceIndex];
 
             // Only fetch external IDs if this source actually needs them
             if (source.needsAnimeIds && !idsResolved) {
-                ids = await fetchAnimeIds(item, episodeInfo.season);
+                const fetchedIds = await fetchAnimeIds(item, episodeInfo.season);
+                ids = { ...ids, ...fetchedIds };
                 idsResolved = true;
             }
 
@@ -286,7 +250,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '547c2cf5311a8f449945
             }
 
             console.log(`⚠️ Anime source [${source.name}] returned null, trying next...`);
-            currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
         }
 
         // NUCLEAR OPTION: If all anime sources fail, use the standard TV fallback
@@ -678,7 +641,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     function schedulePlayerHelp(item, token) {
         clearTimeout(playerHelpTimer);
         const isAnime = item && item.isAnime;
-        // For anime: wait 12 s then auto-try the next source.
+        // For anime: wait 12 s then show help toast.
         // For movies/TV: wait 9 s then show a help toast.
         const delay = isAnime ? 12000 : 9000;
 
@@ -686,19 +649,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (token !== currentPlaybackToken || !videoOverlay || videoOverlay.classList.contains('pointer-events-none')) return;
 
             if (isAnime) {
-                // Auto-advance to next source
-                const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
-                const nextIdx = (currentAnimeSourceIdx + 1) % sources.length;
-                currentAnimeSourceIdx = nextIdx;
-                const nextName = sources[nextIdx]?.name || 'next source';
-                if (playerSourceName) playerSourceName.textContent = `Trying ${nextName}...`;
-                showToast(`Source timed out — switching to ${nextName}`, false);
-
-                const position = getCurrentPlaybackPosition();
-                // Re-play only if still watching the same thing
-                if (token === currentPlaybackToken) {
-                    playMedia(currentPlayingItem, position.season, position.episode);
-                }
+                hidePlayerLoader();
+                playerTitleOverlay.classList.remove('opacity-0');
+                showToast('Anime stream is slow. Try clicking "Next Source" in the top bar.', false);
             } else {
                 hidePlayerLoader();
                 playerTitleOverlay.classList.remove('opacity-0');
@@ -1461,7 +1414,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         };
     }
 
-    async function playMedia(item, season = null, episode = null) {
+    async function playMedia(item, season = null, episode = null, forceSourceIdx = null) {
         if (!item) return;
         const playbackToken = ++currentPlaybackToken;
         clearTimeout(playerHelpTimer);
@@ -1472,6 +1425,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         playerTitle.textContent = `${item.title} - Loading...`;
 
         currentPlayingItem = item;
+        if (forceSourceIdx !== null) currentAnimeSourceIdx = forceSourceIdx;
 
         if (item.isAnime) {
             setPlayerControlsMode('anime');
@@ -1487,7 +1441,22 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
             let animeUrl = null;
             try {
-                animeUrl = await getAnimeSourceUrl(item, selectedSeason, selectedEpisode);
+                if (forceSourceIdx !== null) {
+                    const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+                    const source = sources[forceSourceIdx % sources.length];
+                    const episodeInfo = getAnimeEpisodeInfo(selectedSeason, selectedEpisode);
+                    const ids = await fetchAnimeIds(item, episodeInfo.season);
+                    animeUrl = await source.build({
+                        tmdbId: item.tmdb_id,
+                        malId: ids.malId,
+                        title: item.title,
+                        animeEpisode: ids.useSeasonEpisode ? episodeInfo.episode : episodeInfo.absoluteEpisode,
+                        season: episodeInfo.season,
+                        episode: episodeInfo.episode
+                    });
+                } else {
+                    animeUrl = await getAnimeSourceUrl(item, selectedSeason, selectedEpisode);
+                }
             } catch (error) {
                 console.warn('Anime source failed:', error);
             }
@@ -1615,13 +1584,10 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (!currentPlayingItem || !currentPlayingItem.isAnime) return;
             const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
             currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
-            animeSourceFailCount = 0;
-            // Update badge preview text
-            if (playerSourceName) {
-                playerSourceName.textContent = sources[currentAnimeSourceIdx % sources.length]?.name || 'Switching...';
-            }
+
+            // Re-play with the specific source index
             const position = getCurrentPlaybackPosition();
-            playMedia(currentPlayingItem, position.season, position.episode);
+            playMedia(currentPlayingItem, position.season, position.episode, currentAnimeSourceIdx);
         });
     }
 
