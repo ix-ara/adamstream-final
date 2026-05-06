@@ -153,97 +153,54 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     // NOTE: VidLink.pro and public Consumet APIs require a local server (localhost:8080)
     // and are therefore excluded. VidSrc.cc / vidsrc.icu work as pure iframes.
 
-    // SUB SOURCES — pure iframe embeds, no backend needed
+    // SUB SOURCES — Pure iframe embeds (AniKai style)
     const ANIME_SUB_SOURCES = [
-        // 1. VidSrc CC — AniList ID (most reliable sub source)
+        // 1. VidSrc.to — The current industry standard for reliability
         {
-            name: 'VidSrc Sub',
+            name: 'VidSrc.to Sub',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
+        },
+        // 2. VidSrc.me — Extremely stable fallback
+        {
+            name: 'VidSrc.me Sub',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.me/embed/tv/${tmdbId}/${season}/${episode}` : null
+        },
+        // 3. Vidsrc.cc (AniList ID) — Only as a backup
+        {
+            name: 'VidSrc.cc Sub',
             needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub` : null
         },
-        // 2. VidSrc CC — Ani prefix variant
+        // 4. MultiEmbed
         {
-            name: 'VidSrc Ani Sub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
-        },
-        // 3. VidSrc Player embed
-        {
-            name: 'VidSrc Player Sub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?sub=true` : null
-        },
-        // 4. VidSrc ICU
-        {
-            name: 'VidSrc ICU Sub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/0` : null
-        },
-        // 5. VidSrc CC — IMDb ID
-        {
-            name: 'VidSrc IMDb Sub',
-            needsAnimeIds: true,
-            build: async ({ imdbId, absoluteEpisode }) => imdbId ? `https://vidsrc.cc/v2/embed/anime/imdb${imdbId}/${absoluteEpisode}/sub?autoPlay=true` : null
-        },
-        // 6. VidSrc CC — TMDB ID fallback
-        {
-            name: 'VidSrc TMDB Sub',
-            build: ({ tmdbId, absoluteEpisode }) => tmdbId ? `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true` : null
-        },
-        // 7. VidSrc XYZ embed
-        {
-            name: 'VidSrc XYZ Sub',
-            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1` : null
+            name: 'MultiEmbed Sub',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://multiembed.mov/directstream.php?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` : null
         }
     ];
 
-    // DUB SOURCES — pure iframe embeds, no backend needed
+    // DUB SOURCES — Pure iframe embeds
     const ANIME_DUB_SOURCES = [
-        // 1. VidSrc ICU — best dub coverage
+        // 1. VidSrc.to Dub
+        {
+            name: 'VidSrc.to Dub',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
+        },
+        // 2. VidSrc.me Dub
+        {
+            name: 'VidSrc.me Dub',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.me/embed/tv/${tmdbId}/${season}/${episode}` : null
+        },
+        // 3. VidSrc ICU (Reliable for Dubs)
         {
             name: 'VidSrc ICU Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/1` : null
         },
-        // 2. VidSrc Player dub
-        {
-            name: 'VidSrc Player Dub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?dub=true` : null
-        },
-        // 3. VidSrc CC AniList dub
-        {
-            name: 'VidSrc Dub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
-        },
-        // 4. VidSrc CC Ani prefix dub
-        {
-            name: 'VidSrc Ani Dub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
-        },
-        // 5. Cinezo English dub player
+        // 4. Cinezo Dub
         {
             name: 'Cinezo Dub',
             needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=true&primarycolor=ff7657&autoplay=true` : null
-        },
-        // 6. VidSrc CC IMDb dub
-        {
-            name: 'VidSrc IMDb Dub',
-            needsAnimeIds: true,
-            build: async ({ imdbId, absoluteEpisode }) => imdbId ? `https://vidsrc.cc/v2/embed/anime/imdb${imdbId}/${absoluteEpisode}/dub?autoPlay=true` : null
-        },
-        // 7. VidSrc CC TMDB dub
-        {
-            name: 'VidSrc TMDB Dub',
-            build: ({ tmdbId, absoluteEpisode }) => tmdbId ? `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true` : null
-        },
-        // 8. TV embed fallback (last resort)
-        {
-            name: 'TV Fallback',
-            build: ({ tmdbId, season, episode }) => tmdbId ? `https://player.vidsrc.co/embed/tv/${tmdbId}/${season}/${episode}` : null
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=true` : null
         }
     ];
 
