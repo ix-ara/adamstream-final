@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AdamStream - Curated Streaming Library</title>
+    <title>AdamStream - Curated Preview Library</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
@@ -195,19 +195,32 @@
             opacity: 0.6;
         }
 
-        /* Sorani (Kurdish) Subtitle & RTL Support */
-        video::cue,
-        .kurdish-cue {
-            direction: rtl !important;
-            unicode-bidi: embed !important;
-            font-size: 24px !important;
-            font-family: 'Noto Sans Arabic', 'Tahoma', sans-serif !important;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        #video-overlay {
+            background:
+                radial-gradient(circle at 18% 14%, rgba(255, 118, 87, 0.13), transparent 28%),
+                radial-gradient(circle at 82% 18%, rgba(110, 231, 183, 0.1), transparent 24%),
+                #080706;
         }
 
-        #player-sub-btn.active {
-            color: #ff7657;
-            text-shadow: 0 0 10px rgba(255, 118, 87, 0.45);
+        #player-iframe {
+            background: #080706;
+        }
+
+        #player-title-overlay,
+        #player-episode-selector,
+        #exit-player {
+            border-radius: 8px !important;
+            border: 1px solid rgba(248, 243, 232, 0.12);
+            box-shadow: 0 18px 55px rgba(0, 0, 0, 0.32);
+        }
+
+        #player-title-overlay {
+            background: rgba(18, 17, 15, 0.72);
+            backdrop-filter: blur(16px);
+        }
+
+        #player-episode-selector {
+            background: rgba(18, 17, 15, 0.68);
         }
 
         @keyframes mesh-rotate {
@@ -428,10 +441,7 @@
             border-radius: 8px !important;
         }
 
-        .server-btn,
-        #btn-sub,
-        #btn-dub,
-        #player-sub-btn {
+        #player-episode-selector {
             border-radius: 8px !important;
         }
 
@@ -555,7 +565,7 @@
                     <button id="hero-play"
                         class="bg-white text-black px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-zinc-200 transition-colors">
                         <span class="material-symbols-outlined fill"
-                            style="font-variation-settings: 'FILL' 1;">play_arrow</span> Watch
+                            style="font-variation-settings: 'FILL' 1;">play_arrow</span> Preview
                     </button>
                     <button id="hero-info"
                         class="bg-zinc-500/50 text-white px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-zinc-500/30 transition-colors backdrop-blur-md">
@@ -594,7 +604,7 @@
                         <button id="modal-play"
                             class="bg-netflix-red text-white px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-red-700 transition-colors">
                             <span class="material-symbols-outlined fill"
-                                style="font-variation-settings: 'FILL' 1;">play_arrow</span> Play
+                                style="font-variation-settings: 'FILL' 1;">play_arrow</span> Preview
                         </button>
                         <button id="modal-add-list" type="button"
                             class="bg-white/10 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/30"
@@ -619,22 +629,6 @@
                     </div>
                     <p id="modal-desc" class="text-lg text-zinc-200 leading-relaxed"></p>
 
-                    <!-- Episodes Section (Dynamic) -->
-                    <div id="episodes-section" class="hidden animate-slide-up">
-                        <div class="flex items-center justify-between mb-4 border-b border-zinc-800 pb-2">
-                            <h4 class="text-xl font-bold">Episodes</h4>
-                            <div class="flex items-center gap-3">
-                                <label for="season-select"
-                                    class="text-zinc-500 text-xs uppercase tracking-wider">Season</label>
-                                <select id="season-select"
-                                    class="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm">
-                                </select>
-                            </div>
-                        </div>
-                        <div id="episodes-list" class="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar">
-                            <!-- Episodes injected here -->
-                        </div>
-                    </div>
                 </div>
                 <div class="space-y-4">
                     <div class="text-sm text-zinc-400">
@@ -657,60 +651,18 @@
             Back to Browse
         </button>
 
-        <!-- Player Episode Selector -->
+        <!-- Player Preview Controls -->
         <div id="player-episode-selector"
             class="absolute top-10 right-10 z-[310] hidden items-center gap-3 bg-black/60 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
-            <!-- Server Switcher -->
-            <div id="player-server-controls" class="flex items-center gap-1.5 mr-3 pr-3 border-r border-white/10">
-                <span class="text-[10px] text-zinc-500 font-black uppercase tracking-tighter mr-1">Server</span>
-                <div id="server-switcher" class="flex items-center gap-2">
-                    <button data-server="alpha"
-                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Alpha</button>
-                    <button data-server="delta"
-                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Delta</button>
-                    <button data-server="prime"
-                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Prime</button>
-                    <button data-server="legacy"
-                        class="server-btn text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm uppercase transition-all">Legacy</button>
-                </div>
-            </div>
-
-            <div id="player-episode-controls" class="flex items-center gap-3">
-                <span class="text-zinc-300 text-xs font-bold uppercase tracking-wider">EPISODES</span>
+            <div id="player-episode-controls" class="hidden items-center gap-3">
+                <span class="text-zinc-300 text-xs font-bold uppercase tracking-wider">Preview</span>
                 <select id="player-season-select"
-                    class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
+                    class="hidden bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
                 </select>
-                <span class="text-zinc-500 font-bold">/</span>
+                <span class="hidden text-zinc-500 font-bold">/</span>
                 <select id="player-episode-select"
-                    class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
+                    class="hidden bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
                 </select>
-            </div>
-            <button id="player-sub-btn"
-                class="text-zinc-300 hover:text-white transition-all ml-2 bg-white/5 border border-white/10 rounded-full px-3 py-2 shadow-sm"
-                title="Toggle Kurdish subtitles">subtitles</button>
-            <button id="player-trailer-btn"
-                class="hidden text-zinc-300 hover:text-white transition-all bg-white/5 border border-white/10 rounded-full px-3 py-2 shadow-sm"
-                title="Play official trailer">
-                <span class="material-symbols-outlined text-base leading-none">movie</span>
-            </button>
-            <!-- Sub/Dub toggle - only visible for anime -->
-            <div id="player-dub-toggle"
-                class="hidden items-center gap-2 ml-1 bg-white/5 rounded-full p-1 border border-white/10 shadow-2xl backdrop-blur-xl">
-                <button id="btn-sub"
-                    class="text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-white text-black shadow-sm transition-all uppercase">SUB</button>
-                <button id="btn-dub"
-                    class="text-[10px] md:text-xs font-black px-3 py-1 rounded-full bg-zinc-900/80 text-zinc-300 border border-white/10 shadow-sm transition-all uppercase">DUB</button>
-            </div>
-        </div>
-
-        <div id="dub-hint" class="hidden absolute inset-0 z-[320] items-center justify-center pointer-events-none">
-            <div
-                class="bg-zinc-900/95 border border-zinc-600 rounded-2xl px-8 py-6 max-w-sm text-center shadow-2xl backdrop-blur-md pointer-events-none">
-                <span class="material-symbols-outlined text-4xl text-netflix-red mb-3 block">translate</span>
-                <h3 class="text-white font-black text-lg mb-2 uppercase">Switching to English DUB</h3>
-                <p class="text-zinc-400 text-sm leading-relaxed">Loading English dubbed source. If the episode shows
-                    "Not Found", this anime may not have an English dub available yet.</p>
-                <p class="text-zinc-600 text-xs mt-3 uppercase">Switch back to SUB for guaranteed playback.</p>
             </div>
         </div>
 
@@ -749,7 +701,7 @@
                     webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
                 <div class="absolute top-28 left-10 z-[309] bg-black/40 px-4 py-2 rounded-md border border-white/20 pointer-events-none transition-opacity duration-300"
                     id="player-title-overlay">
-                    <p class="text-xs text-zinc-300 uppercase tracking-[0.2em]">Now streaming</p>
+                    <p class="text-xs text-zinc-300 uppercase tracking-[0.2em]">Now previewing</p>
                     <p id="player-title" class="text-base text-white uppercase tracking-wider font-black"></p>
                 </div>
             </div>

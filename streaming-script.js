@@ -541,27 +541,27 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     }
 
     function setPlayerControlsMode(mode) {
-        const visible = mode !== 'hidden';
+        const visible = mode === 'preview';
         if (playerEpisodeSelector) {
             playerEpisodeSelector.classList.toggle('hidden', !visible);
             playerEpisodeSelector.classList.toggle('flex', visible);
         }
         if (playerEpisodeControls) {
-            playerEpisodeControls.classList.toggle('hidden', !(mode === 'series' || mode === 'anime'));
-            playerEpisodeControls.classList.toggle('flex', mode === 'series' || mode === 'anime');
+            playerEpisodeControls.classList.toggle('hidden', !visible);
+            playerEpisodeControls.classList.toggle('flex', visible);
         }
         if (playerServerControls) {
-            playerServerControls.classList.toggle('hidden', mode === 'hidden' || mode === 'anime');
-            playerServerControls.classList.toggle('flex', mode === 'movie' || mode === 'series');
+            playerServerControls.classList.add('hidden');
+            playerServerControls.classList.remove('flex');
         }
         if (playerSubBtn) {
-            playerSubBtn.classList.toggle('hidden', mode === 'hidden' || mode === 'anime');
-            if (mode !== 'anime') playerSubBtn.textContent = 'subtitles';
+            playerSubBtn.classList.add('hidden');
+            playerSubBtn.textContent = 'subtitles';
         }
-        if (playerTrailerBtn) playerTrailerBtn.classList.toggle('hidden', !visible);
+        if (playerTrailerBtn) playerTrailerBtn.classList.add('hidden');
         if (playerDubToggle) {
-            playerDubToggle.classList.toggle('hidden', mode !== 'anime');
-            playerDubToggle.classList.toggle('flex', mode === 'anime');
+            playerDubToggle.classList.add('hidden');
+            playerDubToggle.classList.remove('flex');
         }
     }
 
@@ -598,24 +598,62 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         return trailerCache[key];
     }
 
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function buildPreviewFallbackFrame(item) {
+        const title = escapeHtml(item?.title || 'Preview unavailable');
+        const poster = escapeHtml(item?.backdrop || item?.poster || ANIME_PLACEHOLDER_BACKDROP);
+        const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;background:#12110f;color:#f8f3e8;font-family:Inter,Arial,sans-serif;overflow:hidden}
+.wrap{position:relative;display:grid;place-items:center;height:100%;isolation:isolate;text-align:center;padding:32px}
+.bg{position:absolute;inset:0;background:linear-gradient(90deg,rgba(18,17,15,.98),rgba(18,17,15,.76),rgba(18,17,15,.48)),url("${poster}") center/cover no-repeat;filter:saturate(.85);z-index:-2}
+.shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,rgba(255,118,87,.18),transparent 34%),linear-gradient(to top,#12110f,transparent 52%);z-index:-1}
+.panel{max-width:620px}
+.mark{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:16px;background:#ff7657;color:#12110f;font-size:28px;font-weight:900;margin-bottom:22px;box-shadow:0 22px 60px rgba(255,118,87,.25)}
+h1{font-size:clamp(32px,5vw,64px);line-height:.95;letter-spacing:-.04em;margin:0 0 14px;font-weight:900}
+p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
+.tag{margin-top:24px;display:inline-block;border:1px solid rgba(248,243,232,.18);border-radius:999px;padding:10px 14px;color:#f8f3e8;background:rgba(248,243,232,.07);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<main class="wrap">
+<div class="bg"></div><div class="shade"></div>
+<section class="panel">
+<div class="mark">i</div>
+<h1>${title}</h1>
+<p>An official preview is not available for this title right now. The broken third-party players were removed so AdamStream does not send you into 404 pages.</p>
+<div class="tag">Premium catalog view</div>
+</section>
+</main>
+</body>
+</html>`;
+        return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+    }
+
     async function playTrailerFallback(item = currentPlayingItem) {
         if (!item) return;
         currentPlaybackToken += 1;
         clearTimeout(playerHelpTimer);
         if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
         const trailerUrl = await fetchTrailerUrl(item);
-        if (!trailerUrl) {
-            hidePlayerLoader();
-            showToast('No official trailer is available for this title.', false);
-            return;
-        }
 
-        const mode = item.isAnime ? 'anime' : (item.isMovie ? 'movie' : 'series');
-        setPlayerControlsMode(mode);
+        setPlayerControlsMode('preview');
         playerIframe.onerror = null;
         playerIframe.onload = hidePlayerLoader;
-        playerIframe.src = trailerUrl;
-        playerTitle.textContent = `${item.title} - Official Trailer`;
+        playerIframe.src = trailerUrl || buildPreviewFallbackFrame(item);
+        playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
         videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
         playerTitleOverlay.classList.remove('opacity-0');
         document.body.style.overflow = 'hidden';
@@ -627,7 +665,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (token !== currentPlaybackToken || !videoOverlay || videoOverlay.classList.contains('pointer-events-none')) return;
             hidePlayerLoader();
             playerTitleOverlay.classList.remove('opacity-0');
-            showToast(item?.isAnime ? 'Still loading? Switch SUB source, try DUB, or play the trailer.' : 'If this source says File not found, switch source or play the trailer.', false);
+            showToast('Preview is taking longer than expected. Try another title if it does not start.', false);
         }, 7000);
     }
 
@@ -1262,7 +1300,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         heroInterval = setInterval(rotate, 8000);
     }
 
-    // --- MODAL & EPISODES ---
+    // --- MODAL ---
     async function openModal(item) {
         if (!item || !detailModal) return;
         document.getElementById('modal-image').src = item.backdrop || item.poster;
@@ -1278,85 +1316,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const list = document.getElementById('episodes-list');
         const seasonSelect = document.getElementById('season-select');
         
-        if (item.isMovie) {
-            epSection.classList.add('hidden');
-            document.getElementById('modal-play').onclick = () => {
-                 closeModal();
-                 playMedia(item);
-            };
-        } else {
-            // Show episodes section for TV/Anime
-            epSection.classList.remove('hidden');
-            list.innerHTML = '<p class="text-zinc-400">Fetching seasons...</p>';
-            seasonSelect.innerHTML = '';
-            
-            document.getElementById('modal-play').onclick = () => {
-                closeModal();
-                playMedia(item, 1, 1);
-            };
+        if (epSection) epSection.classList.add('hidden');
+        if (list) list.innerHTML = '';
+        if (seasonSelect) seasonSelect.innerHTML = '';
 
-            const seasons = await ensureSeasonData(item);
-            if (!seasons || seasons.length === 0) {
-                list.innerHTML = '<p class="text-zinc-400">Episode details unavailable.</p>';
-                seasonSelect.classList.add('hidden');
-                return;
-            }
-
-            // Always show season selector
-            seasonSelect.classList.remove('hidden');
-
-            // Populate season dropdown
-            seasons.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.season_number;
-                opt.textContent = `Season ${s.season_number}`;
-                seasonSelect.appendChild(opt);
-            });
-
-            // Function to render episodes for a given season
-            const renderEpisodes = (seasonObj) => {
-                list.innerHTML = '';
-                const episodes = seasonObj.episode_count || 12;
-                const seasonNum = seasonObj.season_number;
-                
-                for (let i = 1; i <= episodes; i++) {
-                    const ep = document.createElement('button');
-                    ep.type = 'button';
-                    ep.className = 'w-full text-left flex items-center gap-4 p-4 rounded-md hover:bg-zinc-800/50 cursor-pointer group transition-colors border border-transparent hover:border-zinc-700';
-                    
-                    ep.innerHTML = `
-                        <span class="text-xl font-bold text-zinc-600 group-hover:text-white w-6 text-center">${i}</span>
-                        <div class="relative w-32 h-18 flex-shrink-0">
-                            <img src="${item.poster}" class="w-full h-[72px] object-cover rounded opacity-60 group-hover:opacity-100 transition-opacity">
-                            <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 text-3xl drop-shadow-lg">play_circle</span>
-                        </div>
-                        <div class="flex-1">
-                            <h5 class="text-sm font-bold mb-1">Episode ${i}</h5>
-                            <p class="text-xs text-zinc-500 line-clamp-1">Season ${seasonNum} - Episode ${i}</p>
-                        </div>
-                    `;
-                    
-                    ep.onclick = () => {
-                        closeModal();
-                        playMedia(item, seasonNum, i);
-                    };
-                    
-                    list.appendChild(ep);
-                }
-            };
-
-            // Render first season by default
-            renderEpisodes(seasons[0]);
-
-            // Handle season selection
-            seasonSelect.onchange = (e) => {
-                const selectedSeasonNum = Number(e.target.value);
-                const selectedSeason = seasons.find(s => s.season_number === selectedSeasonNum);
-                if (selectedSeason) {
-                    renderEpisodes(selectedSeason);
-                }
-            };
-        }
+        document.getElementById('modal-play').onclick = () => {
+            closeModal();
+            playMedia(item);
+        };
 
         // --- My List Toggle Logic ---
         const addListBtn = document.getElementById('modal-add-list');
@@ -1401,7 +1368,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         document.body.style.overflow = '';
     }
 
-    // --- Vidsrc Embed / Player ---
+    // --- Preview Player ---
     function populatePlayerSelectors(currentS, currentE) {
         if (!playerSeasonSelect || !playerEpisodeSelect) return;
         playerSeasonSelect.innerHTML = '';
@@ -1455,96 +1422,16 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         playerTitleOverlay.classList.remove('opacity-0');
         playerTitle.textContent = `${item.title} - Loading...`;
 
-        if (!item.isMovie) {
-            await ensureSeasonData(item);
-        }
-        const isDifferentAnime = item.isAnime && (!currentPlayingItem || getItemPlaybackKey(currentPlayingItem) !== getItemPlaybackKey(item));
-        if (isDifferentAnime) {
-            currentAnimeSourceIdx = 0;
-            animeSourceFailCount = 0;
-        }
         currentPlayingItem = item;
-        if (playerTrailerBtn) playerTrailerBtn.onclick = () => playTrailerFallback(item);
+        setPlayerControlsMode('preview');
 
-        const s = season || 1;
-        const e = episode || 1;
-        const animeEpisodeInfo = item.isAnime ? getAnimeEpisodeInfo(s, e) : null;
-        let url = '';
-        let subtitle = '';
+        const trailerUrl = await fetchTrailerUrl(item);
+        if (playbackToken !== currentPlaybackToken) return;
 
-        if (item.isMovie) {
-            url = getServerUrl(item, s, e, currentServer);
-            subtitle = '';
-            setPlayerControlsMode('movie');
-        } else {
-            if (item.isAnime) {
-                url = await getAnimeSourceUrl(item, s, e);
-                if (!url) {
-                    playerTitle.textContent = `${item.title} - Playback unavailable`;
-                    setPlayerControlsMode('anime');
-                    hidePlayerLoader();
-                    return;
-                }
-            } else {
-                url = getServerUrl(item, s, e, currentServer);
-                if (currentKurdishSub && currentServer === 'alpha') {
-                    url += `&subtitle=${KURDISH_VTT_DATA_URI}&subtitleLabel=Kurdish%20(Sorani)`;
-                }
-            }
-
-            let epLabel = e;
-            if (animeEpisodeInfo) {
-                epLabel = animeEpisodeInfo.absoluteEpisode;
-            }
-            subtitle = item.isAnime ? ` - Ep ${epLabel}` : ` - S${s} E${e}`;
-
-            if (playerEpisodeSelector) {
-                playerEpisodeSelector.classList.remove('hidden');
-                playerEpisodeSelector.classList.add('flex');
-                populatePlayerSelectors(s, e);
-            }
-
-            setPlayerControlsMode(item.isAnime ? 'anime' : 'series');
-        }
-
-        playerIframe.onerror = async () => {
-            if (!currentPlayingItem) return;
-
-            if (currentPlayingItem.isAnime) {
-                animeSourceFailCount += 1;
-                const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
-                currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
-                updateAnimeToggleButtons();
-
-                if (animeSourceFailCount <= sources.length * 2) {
-                    const nextAnimeUrl = await getAnimeSourceUrl(currentPlayingItem, s, e);
-                    if (nextAnimeUrl) {
-                        playerIframe.src = nextAnimeUrl;
-                    }
-                    return;
-                }
-
-                playerTitle.textContent = `${currentPlayingItem.title} - Playback unavailable`;
-                hidePlayerLoader();
-                return;
-            }
-
-            const queue = getServerQueue(currentServer);
-            const currentIndex = queue.indexOf(currentServer);
-            const nextServer = queue[currentIndex + 1];
-            if (nextServer) {
-                currentServer = nextServer;
-                refreshServerButtons();
-                playerIframe.src = getServerUrl(currentPlayingItem, s, e, currentServer);
-            }
-        };
-
-        playerIframe.onload = () => {
-            hidePlayerLoader();
-        };
-
-        playerIframe.src = url;
-        playerTitle.textContent = item.title + subtitle;
+        playerIframe.onerror = null;
+        playerIframe.onload = hidePlayerLoader;
+        playerIframe.src = trailerUrl || buildPreviewFallbackFrame(item);
+        playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
 
         if (playerLoader) {
             playerLoader.classList.remove('opacity-0', 'pointer-events-none');
@@ -1552,8 +1439,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 if (playbackToken === currentPlaybackToken) hidePlayerLoader();
             }, 1800);
         }
-
-        schedulePlayerHelp(item, playbackToken);
 
         setTimeout(() => {
             if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
