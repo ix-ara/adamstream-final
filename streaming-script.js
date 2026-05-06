@@ -107,8 +107,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     let currentAnimeMap = []; // absolute ep index → { season, episode }
     let animeDubMode = false;
     let featuredPool = [];
-    let currentServer = 'prime'; // Default to the highest-quality preferred source
-    const SERVER_PRIORITY = ['prime', 'alpha', 'delta', 'legacy'];
+    let currentServer = 'alpha'; // Default to the broadest TMDB-backed source
+    const SERVER_PRIORITY = ['alpha', 'delta', 'prime', 'legacy'];
     let fallbackServerIndex = 0;
     const GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
 
@@ -117,37 +117,54 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const SERVERS = {
         alpha: {
             name: 'Alpha',
-            movie: (id) => `https://vidsrc.icu/embed/movie/${id}`,
-            tv: (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`
+            movie: (id) => `https://player.vidsrc.co/embed/movie/${id}`,
+            tv: (id, s, e) => `https://player.vidsrc.co/embed/tv/${id}/${s}/${e}`
         },
         delta: {
             name: 'Delta',
-            movie: (id) => `https://vidsrc.xyz/embed/movie?tmdb=${id}`,
-            tv: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`
+            movie: (id) => `https://vidsrc.cc/v2/embed/movie/${id}?autoPlay=true`,
+            tv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
         },
         prime: {
             name: 'Prime',
-            movie: (id) => `https://vidlink.pro/movie/${id}?autoplay=true`,
-            tv: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true`
+            movie: (id) => `https://vidsrc.xyz/embed/movie?tmdb=${id}&autoplay=1`,
+            tv: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&autoplay=1`
         },
         legacy: {
             name: 'Legacy',
-            movie: (id) => `https://vidsrc.to/embed/movie/${id}`,
-            tv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
+            movie: (id) => `https://vidsrc.store/embed/movie/${id}`,
+            tv: (id, s, e) => `https://vidsrc.store/embed/tv/${id}/${s}/${e}`
         }
     };
 
     // Anime endpoints need explicit sub/dub routes. TV endpoints can ignore language hints.
     const ANIME_SUB_SOURCES = [
         {
+            name: 'Vidsrc TV',
+            build: ({ tmdbId, season, episode }) => `https://player.vidsrc.co/embed/tv/${tmdbId}/${season}/${episode}`
+        },
+        {
+            name: 'Vidsrc CC TV',
+            build: ({ tmdbId, season, episode }) => `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${season}/${episode}?autoPlay=true`
+        },
+        {
+            name: 'Vidsrc XYZ TV',
+            build: ({ tmdbId, season, episode }) => `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1`
+        },
+        {
             name: 'VidLink',
             needsAnimeIds: true,
-            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/sub?autoplay=true` : null
+            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/sub` : null
         },
         {
             name: 'Vidsrc Player',
             needsAnimeIds: true,
             build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=false` : null
+        },
+        {
+            name: 'Vidsrc CC Anime',
+            needsAnimeIds: true,
+            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${absoluteEpisode}/sub?autoPlay=true` : null
         },
         {
             name: 'Vidsrc CC',
@@ -163,12 +180,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         {
             name: 'VidLink',
             needsAnimeIds: true,
-            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/dub?autoplay=true` : null
+            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/dub?fallback=true` : null
         },
         {
             name: 'Vidsrc Player',
             needsAnimeIds: true,
             build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=true` : null
+        },
+        {
+            name: 'Vidsrc CC Anime',
+            needsAnimeIds: true,
+            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${absoluteEpisode}/dub?autoPlay=true` : null
         },
         {
             name: 'Vidsrc CC',
@@ -232,6 +254,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 tmdbId: item.tmdb_id,
                 malId: ids.malId,
                 anilistId: ids.anilistId,
+                season: episodeInfo.season,
+                episode: episodeInfo.episode,
                 absoluteEpisode: episodeInfo.absoluteEpisode
             });
 
