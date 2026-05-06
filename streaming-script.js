@@ -105,6 +105,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     let currentPlayingItem = null;
     let currentTvSeasons = [];
     let currentAnimeMap = []; // absolute ep index → { season, episode }
+    let currentAnimeSeasonNames = {};
     let animeDubMode = false;
     let featuredPool = [];
     let currentServer = 'alpha'; // Default to the broadest TMDB-backed source
@@ -140,8 +141,19 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     // Anime endpoints need explicit sub/dub routes. TV endpoints can ignore language hints.
     const ANIME_SUB_SOURCES = [
         {
-            name: "Let's Embed",
-            build: ({ tmdbId, season, episode }) => `https://letsembed.cc/embed/anime/?id=${tmdbId}/${season}/${episode}`
+            name: 'VidSrc ICU',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/0` : null
+        },
+        {
+            name: 'Cinezo',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=false&primarycolor=ff7657&autoplay=true` : null
+        },
+        {
+            name: 'Vidsrc Player',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?dub=false` : null
         },
         {
             name: 'Cinetaro',
@@ -153,19 +165,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true`
         },
         {
-            name: 'Vidsrc Player',
-            needsAnimeIds: true,
-            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=false` : null
-        },
-        {
             name: 'Vidsrc CC Anilist',
             needsAnimeIds: true,
-            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${absoluteEpisode}/sub?autoPlay=true` : null
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
         },
         {
             name: 'Vidsrc CC Ani',
             needsAnimeIds: true,
-            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${absoluteEpisode}/sub?autoPlay=true` : null
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
         },
         {
             name: 'Vidsrc CC IMDb',
@@ -175,7 +182,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         {
             name: 'VidLink',
             needsAnimeIds: true,
-            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/sub` : null
+            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/sub` : null
+        },
+        {
+            name: "Let's Embed",
+            build: ({ tmdbId, season, episode }) => `https://letsembed.cc/embed/anime/?id=${tmdbId}/${season}/${episode}`
         },
         {
             name: 'Vidsrc TV',
@@ -192,6 +203,16 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     ];
     const ANIME_DUB_SOURCES = [
         {
+            name: 'VidSrc ICU',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/1` : null
+        },
+        {
+            name: 'Cinezo',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=true&primarycolor=ff7657&autoplay=true` : null
+        },
+        {
             name: 'Cinetaro',
             needsAnimeIds: true,
             build: async ({ anilistId, season, episode }) => anilistId ? `https://api.cinetaro.buzz/anime/${anilistId}/${season}/${episode}/dub?autoplay=true&color=ff7657` : null
@@ -203,17 +224,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         {
             name: 'Vidsrc Player',
             needsAnimeIds: true,
-            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=true` : null
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?dub=true` : null
         },
         {
             name: 'Vidsrc CC Anilist',
             needsAnimeIds: true,
-            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${absoluteEpisode}/dub?autoPlay=true` : null
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
         },
         {
             name: 'Vidsrc CC Ani',
             needsAnimeIds: true,
-            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${absoluteEpisode}/dub?autoPlay=true` : null
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
         },
         {
             name: 'Vidsrc CC IMDb',
@@ -223,7 +244,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         {
             name: 'VidLink',
             needsAnimeIds: true,
-            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/dub?fallback=true` : null
+            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/dub?fallback=true` : null
         },
         {
             name: 'Vidsrc TV',
@@ -271,18 +292,20 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     async function getAnimeSourceUrl(item, season, episode) {
         const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
         const episodeInfo = getAnimeEpisodeInfo(season, episode);
-        let ids = { anilistId: null, malId: null };
+        let ids = { anilistId: null, malId: null, imdbId: null, useSeasonEpisode: false };
 
         for (let i = 0; i < sources.length; i++) {
             const sourceIndex = currentAnimeSourceIdx % sources.length;
             if (sources[sourceIndex].needsAnimeIds && !ids.anilistId && !ids.malId && !ids.imdbId) {
-                ids = await fetchAnimeIds(item);
+                ids = await fetchAnimeIds(item, episodeInfo.season);
             }
+            const animeEpisode = ids.useSeasonEpisode ? episodeInfo.episode : episodeInfo.absoluteEpisode;
             const url = await sources[sourceIndex].build({
                 tmdbId: item.tmdb_id,
                 malId: ids.malId,
                 anilistId: ids.anilistId,
                 imdbId: ids.imdbId,
+                animeEpisode,
                 season: episodeInfo.season,
                 episode: episodeInfo.episode,
                 absoluteEpisode: episodeInfo.absoluteEpisode
@@ -330,17 +353,41 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             .trim();
     }
 
-    function getAnimeTitleCandidates(item) {
-        const candidates = [
-            item.title,
-            item.originalTitle,
-            item.title && item.title.split(':')[0],
-            item.originalTitle && item.originalTitle.split(':')[0]
-        ]
-            .map(title => (title || '').trim())
-            .filter(Boolean);
+    function isGenericSeasonName(name) {
+        return !name || /^season\s+\d+$/i.test(name) || /^specials$/i.test(name);
+    }
 
-        return [...new Set(candidates)];
+    function getAnimeTitleCandidates(item, seasonNumber) {
+        const seasonName = currentAnimeSeasonNames[seasonNumber] || '';
+        const candidates = [];
+
+        const pushCandidate = (title, useSeasonEpisode = false) => {
+            const value = (title || '').trim();
+            if (!value) return;
+            if (!candidates.some(candidate => normalizeAnimeTitle(candidate.title) === normalizeAnimeTitle(value))) {
+                candidates.push({ title: value, useSeasonEpisode });
+            }
+        };
+
+        if (!isGenericSeasonName(seasonName)) {
+            pushCandidate(`${item.title}: ${seasonName}`, true);
+            pushCandidate(`${item.title} ${seasonName}`, true);
+            pushCandidate(seasonName, true);
+        }
+
+        if (Number(seasonNumber) > 1) {
+            pushCandidate(`${item.title} Season ${seasonNumber}`, true);
+            pushCandidate(`${item.title} ${seasonNumber}`, true);
+            pushCandidate(`${item.originalTitle} Season ${seasonNumber}`, true);
+            pushCandidate(`${item.originalTitle} ${seasonNumber}`, true);
+        }
+
+        pushCandidate(item.title, Number(seasonNumber) === 1);
+        pushCandidate(item.originalTitle, Number(seasonNumber) === 1);
+        pushCandidate(item.title && item.title.split(':')[0], Number(seasonNumber) === 1);
+        pushCandidate(item.originalTitle && item.originalTitle.split(':')[0], Number(seasonNumber) === 1);
+
+        return candidates;
     }
 
     async function fetchTmdbExternalIds(tmdbId) {
@@ -377,7 +424,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 const res = await fetch('https://graphql.anilist.co', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ query, variables: { search: candidate } }),
+                    body: JSON.stringify({ query, variables: { search: candidate.title } }),
                     signal: AbortSignal.timeout(5000)
                 });
                 if (!res.ok) continue;
@@ -386,7 +433,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 const results = data?.data?.Page?.media || [];
                 if (results.length === 0) continue;
 
-                const normalizedCandidate = normalizeAnimeTitle(candidate);
+                const normalizedCandidate = normalizeAnimeTitle(candidate.title);
                 const exact = results.find(media => {
                     const names = [
                         media.title?.romaji,
@@ -395,12 +442,18 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                         media.title?.userPreferred,
                         ...(media.synonyms || [])
                     ].map(normalizeAnimeTitle);
-                    return names.includes(normalizedCandidate);
+                    return names.some(name => {
+                        if (!name || !normalizedCandidate) return false;
+                        return name === normalizedCandidate ||
+                            (normalizedCandidate.length > 4 && name.includes(normalizedCandidate)) ||
+                            (name.length > 4 && normalizedCandidate.includes(name));
+                    });
                 });
                 const match = exact || results[0];
                 return {
                     anilistId: match?.id || null,
-                    malId: match?.idMal || null
+                    malId: match?.idMal || null,
+                    useSeasonEpisode: Boolean(candidate.useSeasonEpisode && exact)
                 };
             }
         } catch (error) {
@@ -413,14 +466,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     async function fetchJikanIds(candidates) {
         for (const candidate of candidates) {
             try {
-                const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(candidate)}&limit=1`, {
+                const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(candidate.title)}&limit=1`, {
                     signal: AbortSignal.timeout(5000)
                 });
                 if (!res.ok) continue;
                 const data = await res.json();
                 const match = data?.data?.[0];
                 if (match?.mal_id) {
-                    return { malId: match.mal_id };
+                    return { malId: match.mal_id, useSeasonEpisode: candidate.useSeasonEpisode };
                 }
             } catch (error) {
                 // Try the next title candidate.
@@ -430,11 +483,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         return {};
     }
 
-    async function fetchAnimeIds(item) {
-        const key = `${item.tmdb_id || ''}:${item.title || ''}`.toLowerCase().trim();
+    async function fetchAnimeIds(item, seasonNumber = 1) {
+        const key = `${item.tmdb_id || ''}:${seasonNumber}:${item.title || ''}`.toLowerCase().trim();
         if (anilistCache[key] !== undefined) return anilistCache[key];
 
-        const candidates = getAnimeTitleCandidates(item);
+        const candidates = getAnimeTitleCandidates(item, seasonNumber);
         const [externalIds, aniListIds] = await Promise.all([
             fetchTmdbExternalIds(item.tmdb_id),
             fetchAniListIds(candidates)
@@ -444,7 +497,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             anilistId: aniListIds.anilistId || null,
             malId: aniListIds.malId || jikanIds.malId || null,
             imdbId: externalIds.imdbId || null,
-            tvdbId: externalIds.tvdbId || null
+            tvdbId: externalIds.tvdbId || null,
+            useSeasonEpisode: Boolean(aniListIds.useSeasonEpisode || jikanIds.useSeasonEpisode)
         };
         anilistCache[key] = ids;
         return ids;
@@ -1008,10 +1062,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             
             currentTvSeasons = seasons;
             currentAnimeMap = [];
+            currentAnimeSeasonNames = {};
 
             // Build anime episode map if needed
             if (item.isAnime) {
                 seasons.forEach(season => {
+                    currentAnimeSeasonNames[season.season_number] = season.name || `Season ${season.season_number}`;
                     const count = season.episode_count || 0;
                     for (let e = 1; e <= count; e++) {
                         currentAnimeMap.push({ season: season.season_number, episode: e });
