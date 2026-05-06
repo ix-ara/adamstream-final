@@ -149,207 +149,98 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     };
 
     // ─── ANIME STREAMING SOURCES ────────────────────────────────────────────────
-    // Priority order: most reliable providers first.
-    // Consumet.ts powers AniWatch (Hianime) & GogoAnime — the industry standard.
-    // We use their public embed wrappers so no backend is required.
+    // Priority: VidSrc-family embeds only — no local backends required.
+    // NOTE: VidLink.pro and public Consumet APIs require a local server (localhost:8080)
+    // and are therefore excluded. VidSrc.cc / vidsrc.icu work as pure iframes.
 
-    // Helper: search Consumet AniWatch for an episode embed URL
-    const consumetAniwatchCache = {};
-    async function fetchConsumetAniwatch(title, episode, type = 'sub') {
-        const cacheKey = `${title}:${episode}:${type}`;
-        if (consumetAniwatchCache[cacheKey] !== undefined) return consumetAniwatchCache[cacheKey];
-        try {
-            const encoded = encodeURIComponent(title);
-            // Try the Consumet public API — search AniWatch (Hianime)
-            const res = await fetch(
-                `https://consumet-api-two.vercel.app/anime/zoro/${encoded}`,
-                { signal: AbortSignal.timeout(5000) }
-            );
-            if (!res.ok) throw new Error('Consumet search failed');
-            const data = await res.json();
-            const results = data?.results || [];
-            if (!results.length) throw new Error('No Consumet results');
-
-            // Pick the best match
-            const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            const normTitle = norm(title);
-            const match = results.find(r => norm(r.title) === normTitle) ||
-                results.find(r => norm(r.title).includes(normTitle) || normTitle.includes(norm(r.title))) ||
-                results[0];
-
-            if (!match?.id) throw new Error('No match id');
-
-            // Fetch episodes for that anime
-            const epRes = await fetch(
-                `https://consumet-api-two.vercel.app/anime/zoro/episodes/${encodeURIComponent(match.id)}`,
-                { signal: AbortSignal.timeout(5000) }
-            );
-            if (!epRes.ok) throw new Error('Consumet episodes failed');
-            const epData = await epRes.json();
-            const episodes = epData?.episodes || [];
-            const epInfo = episodes[Math.max(0, Number(episode) - 1)] || episodes[0];
-            if (!epInfo?.id) throw new Error('No episode id');
-
-            // Build embed URL using Hianime embed (works in iframes)
-            const episodeId = encodeURIComponent(epInfo.id);
-            const url = `https://hianime.to/watch/${encodeURIComponent(match.id)}?ep=${episodeId}`;
-            consumetAniwatchCache[cacheKey] = url;
-            return url;
-        } catch (e) {
-            consumetAniwatchCache[cacheKey] = null;
-            return null;
-        }
-    }
-
-    // Helper: build a GogoAnime embed via Consumet server streams endpoint
-    async function fetchConsumetGogo(title, episode, type = 'sub') {
-        try {
-            const encoded = encodeURIComponent(`${title} ${type === 'dub' ? '(Dub)' : ''}`.trim());
-            const res = await fetch(
-                `https://consumet-api-two.vercel.app/anime/gogoanime/${encoded}`,
-                { signal: AbortSignal.timeout(5000) }
-            );
-            if (!res.ok) throw new Error('GogoAnime search failed');
-            const data = await res.json();
-            const results = data?.results || [];
-            if (!results.length) return null;
-            const match = results[0];
-            if (!match?.id) return null;
-            // Build a GogoAnime episode embed URL
-            const epId = `${match.id}-episode-${episode}`;
-            return `https://gogoanime3.co/streaming.php?id=${encodeURIComponent(epId)}&title=${encodeURIComponent(title)}`;
-        } catch (e) {
-            return null;
-        }
-    }
-
+    // SUB SOURCES — pure iframe embeds, no backend needed
     const ANIME_SUB_SOURCES = [
-        // 1. AniWatch/Hianime — best sub experience, Consumet-powered
+        // 1. VidSrc CC — AniList ID (most reliable sub source)
         {
-            name: '🔥 AniWatch Sub',
-            needsAnimeIds: false,
-            consumet: true,
-            build: async ({ title, animeEpisode }) => {
-                const n = (title || '').split(':')[0].trim();
-                return n ? fetchConsumetAniwatch(n, animeEpisode, 'sub') : null;
-            }
-        },
-        // 2. VidLink — reliable MAL-based provider
-        {
-            name: 'VidLink Sub',
-            needsAnimeIds: true,
-            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/sub?primaryColor=ff7657&secondaryColor=ff7657&iconColor=ff7657&autoplay=true&nextbutton=true` : null
-        },
-        // 3. VidSrc CC AniList
-        {
-            name: 'VidSrc AniList Sub',
+            name: 'VidSrc Sub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
         },
-        // 4. VidSrc CC Ani prefix
+        // 2. VidSrc CC — Ani prefix variant
         {
             name: 'VidSrc Ani Sub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
         },
-        // 5. VidSrc Player
+        // 3. VidSrc Player embed
         {
             name: 'VidSrc Player Sub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?sub=true` : null
         },
-        // 6. VidSrc CC IMDb
+        // 4. VidSrc ICU
+        {
+            name: 'VidSrc ICU Sub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/0` : null
+        },
+        // 5. VidSrc CC — IMDb ID
         {
             name: 'VidSrc IMDb Sub',
             needsAnimeIds: true,
             build: async ({ imdbId, absoluteEpisode }) => imdbId ? `https://vidsrc.cc/v2/embed/anime/imdb${imdbId}/${absoluteEpisode}/sub?autoPlay=true` : null
         },
-        // 7. VidSrc CC TMDB fallback
+        // 6. VidSrc CC — TMDB ID fallback
         {
             name: 'VidSrc TMDB Sub',
             build: ({ tmdbId, absoluteEpisode }) => tmdbId ? `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true` : null
         },
-        // 8. GogoAnime via Consumet
+        // 7. VidSrc XYZ embed
         {
-            name: '🎬 GogoAnime Sub',
-            needsAnimeIds: false,
-            consumet: true,
-            build: async ({ title, animeEpisode }) => {
-                const n = (title || '').split(':')[0].trim();
-                return n ? fetchConsumetGogo(n, animeEpisode, 'sub') : null;
-            }
+            name: 'VidSrc XYZ Sub',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1` : null
         }
     ];
 
+    // DUB SOURCES — pure iframe embeds, no backend needed
     const ANIME_DUB_SOURCES = [
-        // 1. VidLink — MAL-based dub (GogoAnime English dub)
-        {
-            name: '🔥 VidLink Dub',
-            needsAnimeIds: true,
-            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/dub?primaryColor=ff7657&secondaryColor=ff7657&iconColor=ff7657&autoplay=true&nextbutton=true` : null
-        },
-        // 2. GogoAnime Dub via Consumet
-        {
-            name: '🎬 GogoAnime Dub',
-            needsAnimeIds: false,
-            consumet: true,
-            build: async ({ title, animeEpisode }) => {
-                const n = (title || '').split(':')[0].trim();
-                return n ? fetchConsumetGogo(n, animeEpisode, 'dub') : null;
-            }
-        },
-        // 3. VidSrc ICU — AniList dub
+        // 1. VidSrc ICU — best dub coverage
         {
             name: 'VidSrc ICU Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/1` : null
         },
-        // 4. Cinezo dub player
-        {
-            name: 'Cinezo Dub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=true&primarycolor=ff7657&autoplay=true` : null
-        },
-        // 5. VidSrc CC TMDB dub
-        {
-            name: 'VidSrc TMDB Dub',
-            build: ({ tmdbId, absoluteEpisode }) => tmdbId ? `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true` : null
-        },
-        // 6. VidSrc Player dub
+        // 2. VidSrc Player dub
         {
             name: 'VidSrc Player Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?dub=true` : null
         },
-        // 7. VidSrc CC AniList dub
+        // 3. VidSrc CC AniList dub
         {
-            name: 'VidSrc AniList Dub',
+            name: 'VidSrc Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
         },
-        // 8. VidSrc CC Ani dub
+        // 4. VidSrc CC Ani prefix dub
         {
             name: 'VidSrc Ani Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
         },
-        // 9. VidSrc CC IMDb dub
+        // 5. Cinezo English dub player
+        {
+            name: 'Cinezo Dub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=true&primarycolor=ff7657&autoplay=true` : null
+        },
+        // 6. VidSrc CC IMDb dub
         {
             name: 'VidSrc IMDb Dub',
             needsAnimeIds: true,
             build: async ({ imdbId, absoluteEpisode }) => imdbId ? `https://vidsrc.cc/v2/embed/anime/imdb${imdbId}/${absoluteEpisode}/dub?autoPlay=true` : null
         },
-        // 10. AniWatch/Hianime with dub preference (some titles have EN dub on Hianime)
+        // 7. VidSrc CC TMDB dub
         {
-            name: '🔥 AniWatch Dub',
-            needsAnimeIds: false,
-            consumet: true,
-            build: async ({ title, animeEpisode }) => {
-                const n = (title || '').split(':')[0].trim();
-                return n ? fetchConsumetAniwatch(n, animeEpisode, 'dub') : null;
-            }
+            name: 'VidSrc TMDB Dub',
+            build: ({ tmdbId, absoluteEpisode }) => tmdbId ? `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true` : null
         },
-        // 11. TMDB TV fallback (last resort)
+        // 8. TV embed fallback (last resort)
         {
             name: 'TV Fallback',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://player.vidsrc.co/embed/tv/${tmdbId}/${season}/${episode}` : null
