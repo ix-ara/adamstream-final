@@ -144,63 +144,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
     };
 
-    // Anime endpoints need explicit sub/dub routes. TV endpoints can ignore language hints.
+    // Keep anime subtitle playback on one provider so the UI does not cycle through dead sources.
     const ANIME_SUB_SOURCES = [
         {
-            name: 'VidSrc ICU',
+            name: 'Sub',
             needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/0` : null
-        },
-        {
-            name: 'Cinezo',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=false&primarycolor=ff7657&autoplay=true` : null
-        },
-        {
-            name: 'Vidsrc Player',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?dub=false` : null
-        },
-        {
-            name: 'Cinetaro',
-            needsAnimeIds: true,
-            build: async ({ anilistId, season, episode }) => anilistId ? `https://api.cinetaro.buzz/anime/${anilistId}/${season}/${episode}/sub?autoplay=true&color=ff7657` : null
-        },
-        {
-            name: 'Vidsrc CC TMDB',
-            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true`
-        },
-        {
-            name: 'Vidsrc CC Anilist',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
-        },
-        {
-            name: 'Vidsrc CC Ani',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
-        },
-        {
-            name: 'Vidsrc CC IMDb',
-            needsAnimeIds: true,
-            build: async ({ imdbId, absoluteEpisode }) => imdbId ? `https://vidsrc.cc/v2/embed/anime/imdb${imdbId}/${absoluteEpisode}/sub?autoPlay=true` : null
-        },
-        {
-            name: 'VidLink',
-            needsAnimeIds: true,
-            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/sub` : null
-        },
-        {
-            name: 'Vidsrc TV',
-            build: ({ tmdbId, season, episode }) => `https://player.vidsrc.co/embed/tv/${tmdbId}/${season}/${episode}`
-        },
-        {
-            name: 'Vidsrc XYZ TV',
-            build: ({ tmdbId, season, episode }) => `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1`
-        },
-        {
-            name: 'Vidsrc CC TV',
-            build: ({ tmdbId, season, episode }) => `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${season}/${episode}?autoPlay=true`
+            build: async ({ malId, anilistId, tmdbId, animeEpisode, absoluteEpisode }) => {
+                if (malId) return `https://vidlink.pro/anime/${malId}/${animeEpisode}/sub`;
+                if (anilistId) return `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub?autoPlay=true`;
+                if (tmdbId) return `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true`;
+                return null;
+            }
         }
     ];
     const ANIME_DUB_SOURCES = [
@@ -285,7 +239,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     async function getAnimeSourceUrl(item, season, episode) {
         const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
         const episodeInfo = getAnimeEpisodeInfo(season, episode);
-        let ids = { anilistId: null, malId: null, imdbId: null, useSeasonEpisode: false };
+        let ids = { anilistId: null, malId: item.malId || null, imdbId: null, useSeasonEpisode: false };
 
         for (let i = 0; i < sources.length; i++) {
             const sourceIndex = currentAnimeSourceIdx % sources.length;
@@ -312,8 +266,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     }
 
     function getAnimeSourceLabel() {
-        const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
-        return `${animeDubMode ? 'DUB' : 'SUB'} ${currentAnimeSourceIdx + 1}/${sources.length}`;
+        return animeDubMode ? 'Dub' : 'Sub';
     }
 
     function updateAnimeToggleButtons() {
@@ -541,7 +494,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     }
 
     function setPlayerControlsMode(mode) {
-        const visible = mode === 'preview';
+        const visible = mode === 'preview' || mode === 'stream' || mode === 'anime';
         if (playerEpisodeSelector) {
             playerEpisodeSelector.classList.toggle('hidden', !visible);
             playerEpisodeSelector.classList.toggle('flex', visible);
@@ -551,17 +504,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             playerEpisodeControls.classList.toggle('flex', visible);
         }
         if (playerServerControls) {
-            playerServerControls.classList.add('hidden');
-            playerServerControls.classList.remove('flex');
+            playerServerControls.classList.toggle('hidden', mode !== 'stream');
+            playerServerControls.classList.toggle('flex', mode === 'stream');
         }
         if (playerSubBtn) {
-            playerSubBtn.classList.add('hidden');
+            playerSubBtn.classList.toggle('hidden', mode !== 'stream');
             playerSubBtn.textContent = 'subtitles';
         }
-        if (playerTrailerBtn) playerTrailerBtn.classList.add('hidden');
+        if (playerTrailerBtn) playerTrailerBtn.classList.toggle('hidden', mode !== 'stream' && mode !== 'anime');
         if (playerDubToggle) {
-            playerDubToggle.classList.add('hidden');
-            playerDubToggle.classList.remove('flex');
+            playerDubToggle.classList.toggle('hidden', mode !== 'anime');
+            playerDubToggle.classList.toggle('flex', mode === 'anime');
         }
     }
 
@@ -569,6 +522,18 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if (playerLoader) {
             playerLoader.classList.add('opacity-0', 'pointer-events-none');
         }
+    }
+
+    function setPlayerFrameUrl(url, playbackToken, loaderTimeout = 7000) {
+        playerIframe.onerror = null;
+        playerIframe.onload = () => {
+            if (playbackToken === currentPlaybackToken) hidePlayerLoader();
+        };
+        playerIframe.src = url;
+
+        setTimeout(() => {
+            if (playbackToken === currentPlaybackToken) hidePlayerLoader();
+        }, loaderTimeout);
     }
 
     async function fetchTrailerUrl(item) {
@@ -665,7 +630,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (token !== currentPlaybackToken || !videoOverlay || videoOverlay.classList.contains('pointer-events-none')) return;
             hidePlayerLoader();
             playerTitleOverlay.classList.remove('opacity-0');
-            showToast('Preview is taking longer than expected. Try another title if it does not start.', false);
+            showToast('Stream is taking longer than expected. Try another episode if it does not start.', false);
         }, 7000);
     }
 
@@ -1425,20 +1390,52 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         currentPlayingItem = item;
         setPlayerControlsMode('preview');
 
+        if (!item.isMovie) {
+            const seasons = await ensureSeasonData(item);
+            if (playbackToken !== currentPlaybackToken) return;
+
+            const firstSeason = seasons[0]?.season_number || 1;
+            const selectedSeason = Number(season) || firstSeason;
+            const selectedEpisode = Number(episode) || 1;
+            populatePlayerSelectors(selectedSeason, selectedEpisode);
+
+            if (item.isAnime) {
+                setPlayerControlsMode('anime');
+                animeDubMode = false;
+                currentAnimeSourceIdx = 0;
+                updateAnimeToggleButtons();
+
+                let animeUrl = null;
+                try {
+                    animeUrl = await getAnimeSourceUrl(item, selectedSeason, selectedEpisode);
+                } catch (error) {
+                    console.warn('Anime source failed:', error);
+                }
+                if (playbackToken !== currentPlaybackToken) return;
+
+                if (animeUrl) {
+                    setPlayerFrameUrl(animeUrl, playbackToken);
+                    playerTitle.textContent = `${item.title} - S${selectedSeason} E${selectedEpisode} - Sub`;
+                    schedulePlayerHelp(item, playbackToken);
+                } else {
+                    const fallbackUrl = buildPreviewFallbackFrame(item);
+                    setPlayerFrameUrl(fallbackUrl, playbackToken, 1800);
+                    playerTitle.textContent = `${item.title} - Anime source unavailable`;
+                    showToast('Anime source unavailable for this episode.', false);
+                }
+
+                setTimeout(() => {
+                    if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
+                }, 5000);
+                return;
+            }
+        }
+
         const trailerUrl = await fetchTrailerUrl(item);
         if (playbackToken !== currentPlaybackToken) return;
 
-        playerIframe.onerror = null;
-        playerIframe.onload = hidePlayerLoader;
-        playerIframe.src = trailerUrl || buildPreviewFallbackFrame(item);
+        setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
         playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
-
-        if (playerLoader) {
-            playerLoader.classList.remove('opacity-0', 'pointer-events-none');
-            setTimeout(() => {
-                if (playbackToken === currentPlaybackToken) hidePlayerLoader();
-            }, 1800);
-        }
 
         setTimeout(() => {
             if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
