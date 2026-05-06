@@ -131,10 +131,10 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // Higher-reliability anime source order for sub / dub playback
     const ANIME_SUB_SOURCES = [
-        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&lang=ja`,
-        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&lang=ja`,
-        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}?lang=ja`,
-        (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}?lang=ja`
+        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&lang=ja&language=ja&audio=ja&sub=ja`,
+        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&lang=ja&language=ja&audio=ja&sub=ja`,
+        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}?lang=ja&language=ja&audio=ja&sub=ja`,
+        (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}?lang=ja&language=ja&audio=ja&sub=ja`
     ];
     const ANIME_DUB_SOURCES = [
         (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`,
@@ -640,12 +640,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 seasonSelect.innerHTML = '';
                 
                 if (item.isAnime) {
-                    seasonSelect.classList.add('hidden');
-                    if(seasonSelect.previousElementSibling) seasonSelect.previousElementSibling.classList.add('hidden');
+                    seasonSelect.classList.remove('hidden');
+                    if(seasonSelect.previousElementSibling) seasonSelect.previousElementSibling.classList.remove('hidden');
                     
-                    // Build Absolute→TMDB Translation Map
                     const seasons = details.seasons.filter(s => s.season_number > 0);
-                    currentTvSeasons = [{ season_number: 1, episode_count: details.number_of_episodes || 12 }];
+                    currentTvSeasons = seasons;
                     currentAnimeMap = [];
                     seasons.forEach(season => {
                         const count = season.episode_count || 0;
@@ -653,33 +652,50 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                             currentAnimeMap.push({ season: season.season_number, episode: e });
                         }
                     });
-
-                    const epsCount = currentAnimeMap.length || details.number_of_episodes || 12;
                     list.innerHTML = '';
-                    const maxEps = epsCount > 1500 ? 1500 : epsCount;
-                    for(let i = 1; i <= maxEps; i++) {
-                        const ep = document.createElement('button');
-                        ep.type = 'button';
-                        ep.className = 'w-full text-left flex items-center gap-4 p-4 rounded-md hover:bg-zinc-800/50 cursor-pointer group transition-colors border border-transparent hover:border-zinc-700';
-                        const mapped = currentAnimeMap[i-1];
-                        const coordLabel = mapped ? `S${mapped.season} E${mapped.episode}` : `S1 E${i}`;
-                        ep.innerHTML = `
-                            <span class="text-xl font-bold text-zinc-600 group-hover:text-white w-6 text-center">${i}</span>
-                            <div class="relative w-32 h-18 flex-shrink-0">
-                                <img src="${item.poster}" class="w-full h-[72px] object-cover rounded opacity-60 group-hover:opacity-100 transition-opacity">
-                                <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 text-3xl drop-shadow-lg">play_circle</span>
-                            </div>
-                            <div class="flex-1">
-                                <h5 class="text-sm font-bold mb-1">Episode ${i}</h5>
-                                <p class="text-xs text-zinc-500 line-clamp-1">${coordLabel}</p>
-                            </div>
-                        `;
-                        ep.onclick = () => {
-                            closeModal();
-                            const m = currentAnimeMap[i-1];
-                            playMedia(item, m ? m.season : 1, m ? m.episode : i);
+
+                    const renderSeasonEpisodes = (seasonObj) => {
+                        list.innerHTML = '';
+                        const episodes = seasonObj.episode_count || 12;
+                        const seasonLabel = seasonObj.season_number;
+                        for (let i = 1; i <= episodes; i++) {
+                            const ep = document.createElement('button');
+                            ep.type = 'button';
+                            ep.className = 'w-full text-left flex items-center gap-4 p-4 rounded-md hover:bg-zinc-800/50 cursor-pointer group transition-colors border border-transparent hover:border-zinc-700';
+                            ep.innerHTML = `
+                                <span class="text-xl font-bold text-zinc-600 group-hover:text-white w-6 text-center">${i}</span>
+                                <div class="relative w-32 h-18 flex-shrink-0">
+                                    <img src="${item.poster}" class="w-full h-[72px] object-cover rounded opacity-60 group-hover:opacity-100 transition-opacity">
+                                    <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 text-3xl drop-shadow-lg">play_circle</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h5 class="text-sm font-bold mb-1">Season ${seasonLabel} · Episode ${i}</h5>
+                                    <p class="text-xs text-zinc-500 line-clamp-1">Play S${seasonLabel} E${i} of ${item.title}</p>
+                                </div>
+                            `;
+                            ep.onclick = () => {
+                                closeModal();
+                                playMedia(item, seasonLabel, i);
+                            };
+                            list.appendChild(ep);
+                        }
+                    };
+
+                    if (seasons.length > 0) {
+                        seasons.forEach(s => {
+                            const opt = document.createElement('option');
+                            opt.value = s.season_number;
+                            opt.textContent = `Season ${s.season_number}`;
+                            seasonSelect.appendChild(opt);
+                        });
+
+                        renderSeasonEpisodes(seasons[0]);
+                        seasonSelect.onchange = (e) => {
+                            const selectedSeason = seasons.find(s => s.season_number === Number(e.target.value));
+                            if (selectedSeason) renderSeasonEpisodes(selectedSeason);
                         };
-                        list.appendChild(ep);
+                    } else {
+                        list.innerHTML = '<p class="text-zinc-400">Episode details unavailable.</p>';
                     }
                 } else {
                     seasonSelect.classList.remove('hidden');
