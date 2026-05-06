@@ -618,6 +618,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const epSection = document.getElementById('episodes-section');
         const list = document.getElementById('episodes-list');
         const seasonSelect = document.getElementById('season-select');
+        const seasonLabel = seasonSelect.previousElementSibling;
         
         if (item.isMovie) {
             epSection.classList.add('hidden');
@@ -626,128 +627,103 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                  playMedia(item);
             };
         } else {
+            // Show episodes section for TV/Anime
             epSection.classList.remove('hidden');
             list.innerHTML = '<p class="text-zinc-400">Fetching seasons...</p>';
+            seasonSelect.innerHTML = '';
             
-            // Default play first ep
             document.getElementById('modal-play').onclick = () => {
                 closeModal();
                 playMedia(item, 1, 1);
             };
 
             const details = await fetchTvDetails(item.tmdb_id);
-            if(details && details.seasons) {
-                seasonSelect.innerHTML = '';
-                
-                if (item.isAnime) {
-                    seasonSelect.classList.remove('hidden');
-                    if(seasonSelect.previousElementSibling) seasonSelect.previousElementSibling.classList.remove('hidden');
-                    
-                    const seasons = details.seasons.filter(s => s.season_number > 0);
-                    currentTvSeasons = seasons;
-                    currentAnimeMap = [];
-                    seasons.forEach(season => {
-                        const count = season.episode_count || 0;
-                        for (let e = 1; e <= count; e++) {
-                            currentAnimeMap.push({ season: season.season_number, episode: e });
-                        }
-                    });
-                    list.innerHTML = '';
-
-                    const renderSeasonEpisodes = (seasonObj) => {
-                        list.innerHTML = '';
-                        const episodes = seasonObj.episode_count || 12;
-                        const seasonLabel = seasonObj.season_number;
-                        for (let i = 1; i <= episodes; i++) {
-                            const ep = document.createElement('button');
-                            ep.type = 'button';
-                            ep.className = 'w-full text-left flex items-center gap-4 p-4 rounded-md hover:bg-zinc-800/50 cursor-pointer group transition-colors border border-transparent hover:border-zinc-700';
-                            ep.innerHTML = `
-                                <span class="text-xl font-bold text-zinc-600 group-hover:text-white w-6 text-center">${i}</span>
-                                <div class="relative w-32 h-18 flex-shrink-0">
-                                    <img src="${item.poster}" class="w-full h-[72px] object-cover rounded opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 text-3xl drop-shadow-lg">play_circle</span>
-                                </div>
-                                <div class="flex-1">
-                                    <h5 class="text-sm font-bold mb-1">Season ${seasonLabel} · Episode ${i}</h5>
-                                    <p class="text-xs text-zinc-500 line-clamp-1">Play S${seasonLabel} E${i} of ${item.title}</p>
-                                </div>
-                            `;
-                            ep.onclick = () => {
-                                closeModal();
-                                playMedia(item, seasonLabel, i);
-                            };
-                            list.appendChild(ep);
-                        }
-                    };
-
-                    if (seasons.length > 0) {
-                        seasons.forEach(s => {
-                            const opt = document.createElement('option');
-                            opt.value = s.season_number;
-                            opt.textContent = `Season ${s.season_number}`;
-                            seasonSelect.appendChild(opt);
-                        });
-
-                        renderSeasonEpisodes(seasons[0]);
-                        seasonSelect.onchange = (e) => {
-                            const selectedSeason = seasons.find(s => s.season_number === Number(e.target.value));
-                            if (selectedSeason) renderSeasonEpisodes(selectedSeason);
-                        };
-                    } else {
-                        list.innerHTML = '<p class="text-zinc-400">Episode details unavailable.</p>';
-                    }
-                } else {
-                    seasonSelect.classList.remove('hidden');
-                    if(seasonSelect.previousElementSibling) seasonSelect.previousElementSibling.classList.remove('hidden');
-                    
-                    const seasons = details.seasons.filter(s => s.season_number > 0);
-                    currentTvSeasons = seasons;
-                    if(seasons.length > 0) {
-                    seasons.forEach(s => {
-                        const opt = document.createElement('option');
-                        opt.value = s.season_number;
-                        opt.textContent = `Season ${s.season_number}`;
-                        seasonSelect.appendChild(opt);
-                    });
-                    
-                    const renderEpisodes = (seasonObj) => {
-                        list.innerHTML = '';
-                        const episodes = seasonObj.episode_count || 12;
-                        for(let i = 1; i <= episodes; i++) {
-                            const ep = document.createElement('button');
-                            ep.type = 'button';
-                            ep.className = 'w-full text-left flex items-center gap-4 p-4 rounded-md hover:bg-zinc-800/50 cursor-pointer group transition-colors border border-transparent hover:border-zinc-700';
-                            ep.innerHTML = `
-                                <span class="text-xl font-bold text-zinc-600 group-hover:text-white w-6 text-center">${i}</span>
-                                <div class="relative w-32 h-18 flex-shrink-0">
-                                    <img src="${item.poster}" class="w-full h-[72px] object-cover rounded opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 text-3xl drop-shadow-lg">play_circle</span>
-                                </div>
-                                <div class="flex-1">
-                                    <h5 class="text-sm font-bold mb-1">Episode ${i}</h5>
-                                    <p class="text-xs text-zinc-500 line-clamp-1">Stream S${seasonObj.season_number} E${i} of ${item.title}</p>
-                                </div>
-                            `;
-                            ep.onclick = () => {
-                                closeModal();
-                                playMedia(item, seasonObj.season_number, i);
-                            };
-                            list.appendChild(ep);
-                        }
-                    };
-                    
-                    renderEpisodes(seasons[0]);
-                    seasonSelect.onchange = (e) => {
-                        const sNum = Number(e.target.value);
-                        const selSeason = seasons.find(s => s.season_number === sNum);
-                        if(selSeason) renderEpisodes(selSeason);
-                    };
-                } else {
-                    list.innerHTML = '<p class="text-zinc-400">Episodes unavailable.</p>';
-                }
-                } // This closes the non-anime else block
+            if (!details || !details.seasons) {
+                list.innerHTML = '<p class="text-zinc-400">Episode details unavailable.</p>';
+                seasonSelect.classList.add('hidden');
+                if(seasonLabel) seasonLabel.classList.add('hidden');
+                return;
             }
+
+            const seasons = details.seasons.filter(s => s.season_number > 0);
+            if (seasons.length === 0) {
+                list.innerHTML = '<p class="text-zinc-400">No seasons available.</p>';
+                seasonSelect.classList.add('hidden');
+                if(seasonLabel) seasonLabel.classList.add('hidden');
+                return;
+            }
+
+            // Always show season selector for anime and multi-season TV
+            seasonSelect.classList.remove('hidden');
+            if(seasonLabel) seasonLabel.classList.remove('hidden');
+            
+            currentTvSeasons = seasons;
+            currentAnimeMap = [];
+
+            // Build anime episode map if needed
+            if (item.isAnime) {
+                seasons.forEach(season => {
+                    const count = season.episode_count || 0;
+                    for (let e = 1; e <= count; e++) {
+                        currentAnimeMap.push({ season: season.season_number, episode: e });
+                    }
+                });
+            }
+
+            // Populate season dropdown
+            seasons.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.season_number;
+                opt.textContent = `Season ${s.season_number}`;
+                seasonSelect.appendChild(opt);
+            });
+
+            // Function to render episodes for a given season
+            const renderEpisodes = (seasonObj) => {
+                list.innerHTML = '';
+                const episodes = seasonObj.episode_count || 12;
+                const seasonNum = seasonObj.season_number;
+                
+                for (let i = 1; i <= episodes; i++) {
+                    const ep = document.createElement('button');
+                    ep.type = 'button';
+                    ep.className = 'w-full text-left flex items-center gap-4 p-4 rounded-md hover:bg-zinc-800/50 cursor-pointer group transition-colors border border-transparent hover:border-zinc-700';
+                    
+                    const epLabel = item.isAnime ? `Ep ${i}` : `Episode ${i}`;
+                    const epDesc = item.isAnime ? `Play Season ${seasonNum} Episode ${i}` : `Stream S${seasonNum} E${i}`;
+                    
+                    ep.innerHTML = `
+                        <span class="text-xl font-bold text-zinc-600 group-hover:text-white w-6 text-center">${i}</span>
+                        <div class="relative w-32 h-18 flex-shrink-0">
+                            <img src="${item.poster}" class="w-full h-[72px] object-cover rounded opacity-60 group-hover:opacity-100 transition-opacity">
+                            <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 text-3xl drop-shadow-lg">play_circle</span>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="text-sm font-bold mb-1">${epLabel}</h5>
+                            <p class="text-xs text-zinc-500 line-clamp-1">${epDesc} of ${item.title}</p>
+                        </div>
+                    `;
+                    
+                    ep.onclick = () => {
+                        closeModal();
+                        playMedia(item, seasonNum, i);
+                    };
+                    
+                    list.appendChild(ep);
+                }
+            };
+
+            // Render first season by default
+            renderEpisodes(seasons[0]);
+
+            // Handle season selection
+            seasonSelect.onchange = (e) => {
+                const selectedSeasonNum = Number(e.target.value);
+                const selectedSeason = seasons.find(s => s.season_number === selectedSeasonNum);
+                if (selectedSeason) {
+                    renderEpisodes(selectedSeason);
+                }
+            };
         }
 
         // --- My List Toggle Logic ---
@@ -769,7 +745,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 }
                 localStorage.setItem('adamstream_mylist', JSON.stringify(libraryData.myList));
                 
-                // Refresh UI
                 const nowInList = libraryData.myList.some(i => i.tmdb_id === item.tmdb_id);
                 addListBtn.innerHTML = `<span class="material-symbols-outlined">${nowInList ? 'check' : 'add'}</span>`;
                 addListBtn.classList.toggle('bg-white', nowInList);
