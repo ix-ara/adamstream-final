@@ -15,17 +15,18 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const heroPlay = document.getElementById('hero-play');
     const heroInfo = document.getElementById('hero-info');
     const heroSetup = document.getElementById('hero-setup');
-    
+
     // Modal
     const detailModal = document.getElementById('detail-modal');
     const closeModalBtn = document.getElementById('close-modal');
-    
+
     // Player
     const videoOverlay = document.getElementById('video-overlay');
     const playerIframe = document.getElementById('player-iframe');
     const exitPlayerBtn = document.getElementById('exit-player');
     const playerTitleOverlay = document.getElementById('player-title-overlay');
     const playerTitle = document.getElementById('player-title');
+    const playerTitleLabel = document.getElementById('player-title-label');
     const playerEpisodeSelector = document.getElementById('player-episode-selector');
     const playerEpisodeControls = document.getElementById('player-episode-controls');
     const playerSeasonSelect = document.getElementById('player-season-select');
@@ -37,13 +38,16 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const playerDubToggle = document.getElementById('player-dub-toggle');
     const btnSub = document.getElementById('btn-sub');
     const btnDub = document.getElementById('btn-dub');
+    const btnNextSource = document.getElementById('btn-next-source');
+    const playerSourceBadge = document.getElementById('player-source-badge');
+    const playerSourceName = document.getElementById('player-source-name');
     const dubHint = document.getElementById('dub-hint');
     const googleLoginBtn = document.getElementById('google-login-btn');
     const authUser = document.getElementById('auth-user');
     const authAvatar = document.getElementById('auth-avatar');
     const authName = document.getElementById('auth-name');
     const authLogout = document.getElementById('auth-logout');
-    
+
     // UI Panels Let
     const profileScreen = document.getElementById('profile-screen');
     const homeBtn = document.getElementById('home-btn');
@@ -54,8 +58,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const seasonSelect = document.getElementById('season-select');
     // Profile Elements removed
 
-    
-    
+
+
     let libraryData = {
         movies: [],
         anime: [],
@@ -85,7 +89,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         crimeTv: [],
         myList: JSON.parse(localStorage.getItem('adamstream_mylist')) || []
     };
-    
+
     const KURDISH_VTT_CONTENT = `WEBVTT
 
 00:00:01.000 --> 00:00:04.000
@@ -144,69 +148,214 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
     };
 
-    // Keep anime subtitle playback on one provider so the UI does not cycle through dead sources.
+    // ─── ANIME STREAMING SOURCES ────────────────────────────────────────────────
+    // Priority order: most reliable providers first.
+    // Consumet.ts powers AniWatch (Hianime) & GogoAnime — the industry standard.
+    // We use their public embed wrappers so no backend is required.
+
+    // Helper: search Consumet AniWatch for an episode embed URL
+    const consumetAniwatchCache = {};
+    async function fetchConsumetAniwatch(title, episode, type = 'sub') {
+        const cacheKey = `${title}:${episode}:${type}`;
+        if (consumetAniwatchCache[cacheKey] !== undefined) return consumetAniwatchCache[cacheKey];
+        try {
+            const encoded = encodeURIComponent(title);
+            // Try the Consumet public API — search AniWatch (Hianime)
+            const res = await fetch(
+                `https://consumet-api-two.vercel.app/anime/zoro/${encoded}`,
+                { signal: AbortSignal.timeout(5000) }
+            );
+            if (!res.ok) throw new Error('Consumet search failed');
+            const data = await res.json();
+            const results = data?.results || [];
+            if (!results.length) throw new Error('No Consumet results');
+
+            // Pick the best match
+            const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const normTitle = norm(title);
+            const match = results.find(r => norm(r.title) === normTitle) ||
+                results.find(r => norm(r.title).includes(normTitle) || normTitle.includes(norm(r.title))) ||
+                results[0];
+
+            if (!match?.id) throw new Error('No match id');
+
+            // Fetch episodes for that anime
+            const epRes = await fetch(
+                `https://consumet-api-two.vercel.app/anime/zoro/episodes/${encodeURIComponent(match.id)}`,
+                { signal: AbortSignal.timeout(5000) }
+            );
+            if (!epRes.ok) throw new Error('Consumet episodes failed');
+            const epData = await epRes.json();
+            const episodes = epData?.episodes || [];
+            const epInfo = episodes[Math.max(0, Number(episode) - 1)] || episodes[0];
+            if (!epInfo?.id) throw new Error('No episode id');
+
+            // Build embed URL using Hianime embed (works in iframes)
+            const episodeId = encodeURIComponent(epInfo.id);
+            const url = `https://hianime.to/watch/${encodeURIComponent(match.id)}?ep=${episodeId}`;
+            consumetAniwatchCache[cacheKey] = url;
+            return url;
+        } catch (e) {
+            consumetAniwatchCache[cacheKey] = null;
+            return null;
+        }
+    }
+
+    // Helper: build a GogoAnime embed via Consumet server streams endpoint
+    async function fetchConsumetGogo(title, episode, type = 'sub') {
+        try {
+            const encoded = encodeURIComponent(`${title} ${type === 'dub' ? '(Dub)' : ''}`.trim());
+            const res = await fetch(
+                `https://consumet-api-two.vercel.app/anime/gogoanime/${encoded}`,
+                { signal: AbortSignal.timeout(5000) }
+            );
+            if (!res.ok) throw new Error('GogoAnime search failed');
+            const data = await res.json();
+            const results = data?.results || [];
+            if (!results.length) return null;
+            const match = results[0];
+            if (!match?.id) return null;
+            // Build a GogoAnime episode embed URL
+            const epId = `${match.id}-episode-${episode}`;
+            return `https://gogoanime3.co/streaming.php?id=${encodeURIComponent(epId)}&title=${encodeURIComponent(title)}`;
+        } catch (e) {
+            return null;
+        }
+    }
+
     const ANIME_SUB_SOURCES = [
+        // 1. AniWatch/Hianime — best sub experience, Consumet-powered
         {
-            name: 'Sub',
+            name: '🔥 AniWatch Sub',
+            needsAnimeIds: false,
+            consumet: true,
+            build: async ({ title, animeEpisode }) => {
+                const n = (title || '').split(':')[0].trim();
+                return n ? fetchConsumetAniwatch(n, animeEpisode, 'sub') : null;
+            }
+        },
+        // 2. VidLink — reliable MAL-based provider
+        {
+            name: 'VidLink Sub',
             needsAnimeIds: true,
-            build: async ({ malId, anilistId, tmdbId, animeEpisode, absoluteEpisode }) => {
-                if (malId) return `https://vidlink.pro/anime/${malId}/${animeEpisode}/sub`;
-                if (anilistId) return `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub?autoPlay=true`;
-                if (tmdbId) return `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true`;
-                return null;
+            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/sub?primaryColor=ff7657&secondaryColor=ff7657&iconColor=ff7657&autoplay=true&nextbutton=true` : null
+        },
+        // 3. VidSrc CC AniList
+        {
+            name: 'VidSrc AniList Sub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
+        },
+        // 4. VidSrc CC Ani prefix
+        {
+            name: 'VidSrc Ani Sub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/sub?autoPlay=true` : null
+        },
+        // 5. VidSrc Player
+        {
+            name: 'VidSrc Player Sub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?sub=true` : null
+        },
+        // 6. VidSrc CC IMDb
+        {
+            name: 'VidSrc IMDb Sub',
+            needsAnimeIds: true,
+            build: async ({ imdbId, absoluteEpisode }) => imdbId ? `https://vidsrc.cc/v2/embed/anime/imdb${imdbId}/${absoluteEpisode}/sub?autoPlay=true` : null
+        },
+        // 7. VidSrc CC TMDB fallback
+        {
+            name: 'VidSrc TMDB Sub',
+            build: ({ tmdbId, absoluteEpisode }) => tmdbId ? `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true` : null
+        },
+        // 8. GogoAnime via Consumet
+        {
+            name: '🎬 GogoAnime Sub',
+            needsAnimeIds: false,
+            consumet: true,
+            build: async ({ title, animeEpisode }) => {
+                const n = (title || '').split(':')[0].trim();
+                return n ? fetchConsumetGogo(n, animeEpisode, 'sub') : null;
             }
         }
     ];
+
     const ANIME_DUB_SOURCES = [
+        // 1. VidLink — MAL-based dub (GogoAnime English dub)
         {
-            name: 'VidSrc ICU',
+            name: '🔥 VidLink Dub',
+            needsAnimeIds: true,
+            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/dub?primaryColor=ff7657&secondaryColor=ff7657&iconColor=ff7657&autoplay=true&nextbutton=true` : null
+        },
+        // 2. GogoAnime Dub via Consumet
+        {
+            name: '🎬 GogoAnime Dub',
+            needsAnimeIds: false,
+            consumet: true,
+            build: async ({ title, animeEpisode }) => {
+                const n = (title || '').split(':')[0].trim();
+                return n ? fetchConsumetGogo(n, animeEpisode, 'dub') : null;
+            }
+        },
+        // 3. VidSrc ICU — AniList dub
+        {
+            name: 'VidSrc ICU Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/1` : null
         },
+        // 4. Cinezo dub player
         {
-            name: 'Cinezo',
+            name: 'Cinezo Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.cinezo.live/embed/anime/${anilistId}/${animeEpisode}?dub=true&primarycolor=ff7657&autoplay=true` : null
         },
+        // 5. VidSrc CC TMDB dub
         {
-            name: 'Cinetaro',
-            needsAnimeIds: true,
-            build: async ({ anilistId, season, episode }) => anilistId ? `https://api.cinetaro.buzz/anime/${anilistId}/${season}/${episode}/dub?autoplay=true&color=ff7657` : null
+            name: 'VidSrc TMDB Dub',
+            build: ({ tmdbId, absoluteEpisode }) => tmdbId ? `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true` : null
         },
+        // 6. VidSrc Player dub
         {
-            name: 'Vidsrc CC TMDB',
-            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true`
-        },
-        {
-            name: 'Vidsrc Player',
+            name: 'VidSrc Player Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${animeEpisode}?dub=true` : null
         },
+        // 7. VidSrc CC AniList dub
         {
-            name: 'Vidsrc CC Anilist',
+            name: 'VidSrc AniList Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
         },
+        // 8. VidSrc CC Ani dub
         {
-            name: 'Vidsrc CC Ani',
+            name: 'VidSrc Ani Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${animeEpisode}/dub?autoPlay=true` : null
         },
+        // 9. VidSrc CC IMDb dub
         {
-            name: 'Vidsrc CC IMDb',
+            name: 'VidSrc IMDb Dub',
             needsAnimeIds: true,
             build: async ({ imdbId, absoluteEpisode }) => imdbId ? `https://vidsrc.cc/v2/embed/anime/imdb${imdbId}/${absoluteEpisode}/dub?autoPlay=true` : null
         },
+        // 10. AniWatch/Hianime with dub preference (some titles have EN dub on Hianime)
         {
-            name: 'VidLink',
-            needsAnimeIds: true,
-            build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/dub?fallback=true` : null
+            name: '🔥 AniWatch Dub',
+            needsAnimeIds: false,
+            consumet: true,
+            build: async ({ title, animeEpisode }) => {
+                const n = (title || '').split(':')[0].trim();
+                return n ? fetchConsumetAniwatch(n, animeEpisode, 'dub') : null;
+            }
         },
+        // 11. TMDB TV fallback (last resort)
         {
-            name: 'Vidsrc TV',
-            build: ({ tmdbId, season, episode }) => `https://player.vidsrc.co/embed/tv/${tmdbId}/${season}/${episode}`
+            name: 'TV Fallback',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://player.vidsrc.co/embed/tv/${tmdbId}/${season}/${episode}` : null
         }
     ];
+
     let currentAnimeSourceIdx = 0;
     let animeSourceFailCount = 0;
 
@@ -240,25 +389,43 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
         const episodeInfo = getAnimeEpisodeInfo(season, episode);
         let ids = { anilistId: null, malId: item.malId || null, imdbId: null, useSeasonEpisode: false };
+        let idsResolved = false;
 
         for (let i = 0; i < sources.length; i++) {
             const sourceIndex = currentAnimeSourceIdx % sources.length;
-            if (sources[sourceIndex].needsAnimeIds && !ids.anilistId && !ids.malId && !ids.imdbId) {
-                ids = await fetchAnimeIds(item, episodeInfo.season);
-            }
-            const animeEpisode = ids.useSeasonEpisode ? episodeInfo.episode : episodeInfo.absoluteEpisode;
-            const url = await sources[sourceIndex].build({
-                tmdbId: item.tmdb_id,
-                malId: ids.malId,
-                anilistId: ids.anilistId,
-                imdbId: ids.imdbId,
-                animeEpisode,
-                season: episodeInfo.season,
-                episode: episodeInfo.episode,
-                absoluteEpisode: episodeInfo.absoluteEpisode
-            });
+            const source = sources[sourceIndex];
 
-            if (url) return url;
+            // Only fetch external IDs if this source actually needs them
+            if (source.needsAnimeIds && !idsResolved) {
+                ids = await fetchAnimeIds(item, episodeInfo.season);
+                idsResolved = true;
+            }
+
+            const animeEpisode = ids.useSeasonEpisode ? episodeInfo.episode : episodeInfo.absoluteEpisode;
+
+            let url = null;
+            try {
+                url = await source.build({
+                    tmdbId: item.tmdb_id,
+                    malId: ids.malId,
+                    anilistId: ids.anilistId,
+                    imdbId: ids.imdbId,
+                    title: item.title || item.originalTitle || '',
+                    animeEpisode,
+                    season: episodeInfo.season,
+                    episode: episodeInfo.episode,
+                    absoluteEpisode: episodeInfo.absoluteEpisode
+                });
+            } catch (e) {
+                console.warn(`Anime source [${source.name}] threw:`, e);
+            }
+
+            if (url) {
+                console.log(`✅ Anime source: [${source.name}] → ${url}`);
+                return url;
+            }
+
+            console.log(`⚠️ Anime source [${source.name}] returned null, trying next...`);
             currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
         }
 
@@ -271,9 +438,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     function updateAnimeToggleButtons() {
         if (!btnSub || !btnDub) return;
-        btnSub.textContent = animeDubMode ? 'Sub' : getAnimeSourceLabel();
-        btnDub.textContent = animeDubMode ? 'Dub' : 'Dub';
+        // Sub button — always labelled 'Sub'
+        btnSub.textContent = 'Sub';
+        btnDub.textContent = 'Dub';
 
+        // Active = white pill, inactive = dark pill
         btnSub.classList.toggle('bg-white', !animeDubMode);
         btnSub.classList.toggle('text-black', !animeDubMode);
         btnSub.classList.toggle('bg-zinc-900/80', animeDubMode);
@@ -507,15 +676,22 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             playerServerControls.classList.toggle('hidden', mode !== 'stream');
             playerServerControls.classList.toggle('flex', mode === 'stream');
         }
-        if (playerSubBtn) {
-            playerSubBtn.classList.toggle('hidden', mode !== 'stream');
-            playerSubBtn.textContent = 'subtitles';
+        // Source badge — anime only
+        if (playerSourceBadge) {
+            playerSourceBadge.classList.toggle('hidden', mode !== 'anime');
+            playerSourceBadge.classList.toggle('flex', mode === 'anime');
         }
-        if (playerTrailerBtn) playerTrailerBtn.classList.toggle('hidden', mode !== 'stream' && mode !== 'anime');
-        if (playerDubToggle) {
-            playerDubToggle.classList.toggle('hidden', mode !== 'anime');
-            playerDubToggle.classList.toggle('flex', mode === 'anime');
+        if (btnSub) btnSub.classList.toggle('hidden', mode !== 'anime');
+        if (btnDub) btnDub.classList.toggle('hidden', mode !== 'anime');
+        if (btnNextSource) {
+            btnNextSource.classList.toggle('hidden', mode !== 'anime');
+            btnNextSource.classList.toggle('flex', mode === 'anime');
         }
+        if (playerTrailerBtn) {
+            playerTrailerBtn.classList.toggle('hidden', mode !== 'stream' && mode !== 'anime');
+            playerTrailerBtn.classList.toggle('flex', mode === 'stream' || mode === 'anime');
+        }
+        if (playerTitleLabel) playerTitleLabel.textContent = mode === 'preview' ? 'Preview' : 'Episode';
     }
 
     function hidePlayerLoader() {
@@ -525,6 +701,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     }
 
     function setPlayerFrameUrl(url, playbackToken, loaderTimeout = 7000) {
+        // Update loader text with the active source for anime
+        const loaderText = document.getElementById('player-loader-text');
+        if (loaderText) {
+            if (currentPlayingItem && currentPlayingItem.isAnime) {
+                const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+                const src = sources[currentAnimeSourceIdx % sources.length];
+                loaderText.textContent = src ? `Connecting to ${src.name}...` : 'Optimizing Stream...';
+            } else {
+                loaderText.textContent = 'Optimizing Stream...';
+            }
+        }
         playerIframe.onerror = null;
         playerIframe.onload = () => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
@@ -626,12 +813,34 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     function schedulePlayerHelp(item, token) {
         clearTimeout(playerHelpTimer);
-        playerHelpTimer = setTimeout(() => {
+        const isAnime = item && item.isAnime;
+        // For anime: wait 12 s then auto-try the next source.
+        // For movies/TV: wait 9 s then show a help toast.
+        const delay = isAnime ? 12000 : 9000;
+
+        playerHelpTimer = setTimeout(async () => {
             if (token !== currentPlaybackToken || !videoOverlay || videoOverlay.classList.contains('pointer-events-none')) return;
-            hidePlayerLoader();
-            playerTitleOverlay.classList.remove('opacity-0');
-            showToast('Stream is taking longer than expected. Try another episode if it does not start.', false);
-        }, 7000);
+
+            if (isAnime) {
+                // Auto-advance to next source
+                const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+                const nextIdx = (currentAnimeSourceIdx + 1) % sources.length;
+                currentAnimeSourceIdx = nextIdx;
+                const nextName = sources[nextIdx]?.name || 'next source';
+                if (playerSourceName) playerSourceName.textContent = `Trying ${nextName}...`;
+                showToast(`Source timed out — switching to ${nextName}`, false);
+
+                const position = getCurrentPlaybackPosition();
+                // Re-play only if still watching the same thing
+                if (token === currentPlaybackToken) {
+                    playMedia(currentPlayingItem, position.season, position.episode);
+                }
+            } else {
+                hidePlayerLoader();
+                playerTitleOverlay.classList.remove('opacity-0');
+                showToast('Stream is loading slowly. Try a different server below.', false);
+            }
+        }, delay);
     }
 
     // --- TMDB FETCHING ---
@@ -642,15 +851,15 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             console.log('Fetching:', url.toString().replace(TMDB_API_KEY, '***'));
             url.searchParams.append('api_key', TMDB_API_KEY);
             url.searchParams.append('language', 'en-US');
-            
+
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeoutMs);
-            
+
             const res = await fetch(url.toString(), { signal: controller.signal });
             clearTimeout(id);
-            
+
             if (!res.ok) {
-                if(res.status === 401) throw new Error('Invalid API Key');
+                if (res.status === 401) throw new Error('Invalid API Key');
                 throw new Error('API Error');
             }
             return await res.json();
@@ -671,7 +880,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             url.searchParams.append('query', query);
             const res = await fetch(url.toString());
             return await res.json();
-        } catch(e) {
+        } catch (e) {
             return null;
         }
     }
@@ -680,9 +889,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (!TMDB_API_KEY) return null;
         try {
             const res = await fetch(`${BASE_URL}/tv/${tvId}?api_key=${TMDB_API_KEY}&language=en-US`);
-            if(!res.ok) return null;
+            if (!res.ok) return null;
             return await res.json();
-        } catch(e) {
+        } catch (e) {
             return null;
         }
     }
@@ -973,7 +1182,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             poster: item.poster_path ? `${IMG_BASE_URL}${item.poster_path}` : 'https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500',
             backdrop: item.backdrop_path ? `${IMG_BG_BASE}${item.backdrop_path}` : 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000',
             rating: item.vote_average ? item.vote_average.toFixed(1) : 'NR',
-            year: (item.release_date || item.first_air_date || '').substring(0,4)
+            year: (item.release_date || item.first_air_date || '').substring(0, 4)
         };
     }
 
@@ -1092,20 +1301,20 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             localStorage.setItem('tmdb_api_key', key);
             apiKeyInput.classList.remove('border-red-500');
             apiKeyInput.placeholder = 'Enter TMDB API Key...';
-            
+
             // Fade out modal
             apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
             setTimeout(() => {
                 apiKeyModal.classList.add('hidden');
                 apiKeyModal.classList.remove('flex');
             }, 500);
-            
-            if(heroSetup) heroSetup.classList.add('hidden');
-            
+
+            if (heroSetup) heroSetup.classList.add('hidden');
+
             // Reset to loader ui
             if (heroTitle) heroTitle.textContent = "VERIFYING DATABASE...";
             if (heroDesc) heroDesc.textContent = "Connecting securely to TMDB with your API key.";
-            
+
             loadData();
         } else {
             apiKeyInput.classList.add('border-red-500');
@@ -1123,7 +1332,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     function updateTabState(tab) {
         currentTab = tab;
         currentHeroIndex = 0;
-        
+
         const tabs = {
             'home': homeBtn,
             'anime': animeNavBtn,
@@ -1136,8 +1345,8 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         Object.entries(tabs).forEach(([key, btn]) => {
             if (btn) {
-               // btn.classList.toggle('font-bold', tab === key);
-               // btn.classList.toggle('text-white', tab === key);
+                // btn.classList.toggle('font-bold', tab === key);
+                // btn.classList.toggle('text-white', tab === key);
             }
         });
 
@@ -1157,7 +1366,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             featuredPool = [...libraryData.myList].slice(0, 8);
         }
 
-        if(searchInput && searchInput.value.length > 0) {
+        if (searchInput && searchInput.value.length > 0) {
             handleSearch(searchInput.value);
         } else {
             renderLibrary();
@@ -1165,7 +1374,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             contentRows.classList.add('-mt-20');
             contentRows.classList.remove('mt-24');
             startHeroRotation();
-            if(featuredPool[currentHeroIndex]) updateHeroUI(featuredPool[currentHeroIndex]);
+            if (featuredPool[currentHeroIndex]) updateHeroUI(featuredPool[currentHeroIndex]);
         }
     }
 
@@ -1224,7 +1433,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const heroContent = document.getElementById('hero-content-wrap');
         heroBg.style.opacity = '0.5';
         if (heroContent) heroContent.style.opacity = '0';
-        
+
         setTimeout(() => {
             heroBg.src = item.backdrop;
             heroTitle.textContent = item.title;
@@ -1244,17 +1453,17 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             currentHeroIndex = (currentHeroIndex + 1) % featuredPool.length;
             const nextItem = featuredPool[currentHeroIndex];
             const heroContent = document.getElementById('hero-content-wrap');
-            
+
             // Seamless Fade Logic
             if (heroBg) {
                 heroBg.style.opacity = '0';
                 if (heroContent) heroContent.style.opacity = '0';
-                
+
                 setTimeout(() => {
                     heroBg.src = nextItem.backdrop;
                     heroBg.style.opacity = '1';
                     if (heroContent) heroContent.style.opacity = '1';
-                    
+
                     heroTitle.textContent = nextItem.title;
                     heroDesc.textContent = nextItem.overview;
                     heroPlay.onclick = () => playMedia(nextItem);
@@ -1280,7 +1489,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const epSection = document.getElementById('episodes-section');
         const list = document.getElementById('episodes-list');
         const seasonSelect = document.getElementById('season-select');
-        
+
         if (epSection) epSection.classList.add('hidden');
         if (list) list.innerHTML = '';
         if (seasonSelect) seasonSelect.innerHTML = '';
@@ -1308,14 +1517,14 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                     libraryData.myList.splice(index, 1);
                 }
                 localStorage.setItem('adamstream_mylist', JSON.stringify(libraryData.myList));
-                
+
                 const nowInList = libraryData.myList.some(i => i.tmdb_id === item.tmdb_id);
                 addListBtn.innerHTML = `<span class="material-symbols-outlined">${nowInList ? 'check' : 'add'}</span>`;
                 addListBtn.classList.toggle('bg-white', nowInList);
                 addListBtn.classList.toggle('text-black', nowInList);
                 addListBtn.classList.toggle('bg-white/10', !nowInList);
                 addListBtn.classList.toggle('text-white', !nowInList);
-                
+
                 if (currentTab === 'mylist' || currentTab === 'home') renderLibrary();
             };
         }
@@ -1354,7 +1563,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             const selSeason = currentTvSeasons.find(s => s.season_number === Number(sNum));
             if (!selSeason) return;
             const epCount = selSeason.episode_count || 12;
-            for(let i=1; i<=epCount; i++) {
+            for (let i = 1; i <= epCount; i++) {
                 const opt = document.createElement('option');
                 opt.value = i;
                 opt.textContent = `Ep ${i}`;
@@ -1412,8 +1621,13 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (playbackToken !== currentPlaybackToken) return;
 
             if (animeUrl) {
+                // Show active source in the badge
+                const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+                const activeSrc = sources[currentAnimeSourceIdx % sources.length];
+                if (playerSourceName) playerSourceName.textContent = activeSrc?.name || 'Streaming';
+
                 setPlayerFrameUrl(animeUrl, playbackToken);
-                playerTitle.textContent = `${item.title} - S${selectedSeason} E${selectedEpisode} - Sub`;
+                playerTitle.textContent = `${item.title} - S${selectedSeason} E${selectedEpisode} - ${animeDubMode ? 'Dub' : 'Sub'}`;
                 schedulePlayerHelp(item, playbackToken);
             } else {
                 const fallbackUrl = buildPreviewFallbackFrame(item);
@@ -1473,8 +1687,15 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         videoOverlay.classList.add('opacity-0', 'pointer-events-none');
         setPlayerControlsMode('hidden');
         hidePlayerLoader();
+        // Reset anime state
         animeDubMode = false;
+        currentAnimeSourceIdx = 0;
+        animeSourceFailCount = 0;
         if (dubHint) dubHint.classList.add('hidden');
+        if (playerSourceName) playerSourceName.textContent = 'Loading source...';
+        // Restore loader text default
+        const loaderText = document.getElementById('player-loader-text');
+        if (loaderText) loaderText.textContent = 'Optimizing Stream...';
         document.body.style.overflow = '';
     }
 
@@ -1515,6 +1736,22 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         };
     }
 
+    // Next Source (anime) — cycles to the next provider immediately
+    if (btnNextSource) {
+        btnNextSource.addEventListener('click', () => {
+            if (!currentPlayingItem || !currentPlayingItem.isAnime) return;
+            const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+            currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
+            animeSourceFailCount = 0;
+            // Update badge preview text
+            if (playerSourceName) {
+                playerSourceName.textContent = sources[currentAnimeSourceIdx % sources.length]?.name || 'Switching...';
+            }
+            const position = getCurrentPlaybackPosition();
+            playMedia(currentPlayingItem, position.season, position.episode);
+        });
+    }
+
     // Server Switcher Listeners
     document.querySelectorAll('.server-btn').forEach(btn => {
         btn.onclick = (e) => {
@@ -1535,7 +1772,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const card = document.createElement('button');
         card.type = 'button';
         card.className = 'movie-card flex-shrink-0 w-32 md:w-48 aspect-[2/3] relative rounded-md overflow-hidden cursor-pointer transition-all duration-500 hover:z-30 group shadow-xl shadow-black shadow-glow text-left focus:outline-none focus:ring-2 focus:ring-netflix-red';
-        
+
         card.innerHTML = `
             <img src="${item.poster}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="${item.title}" loading="lazy">
             ${isTop10 ? `<div class="absolute top-2 left-2 bg-netflix-red text-white text-[8px] font-black py-1 px-2 uppercase tracking-[0.16em] shadow-lg z-10 rounded">Spotlight</div>` : ''}
@@ -1584,7 +1821,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const leftBtn = document.createElement('button');
         leftBtn.className = 'absolute left-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-r-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
         leftBtn.innerHTML = '<span class="material-symbols-outlined text-4xl">chevron_left</span>';
-        
+
         const rightBtn = document.createElement('button');
         rightBtn.className = 'absolute right-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-l-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
         rightBtn.innerHTML = '<span class="material-symbols-outlined text-4xl">chevron_right</span>';
@@ -1607,7 +1844,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         rowWrapper.appendChild(leftBtn);
         rowWrapper.appendChild(rightBtn);
         rowWrapper.appendChild(scrollContainer);
-        
+
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -1616,14 +1853,14 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 }
             });
         }, { threshold: 0.05 });
-        
+
         observer.observe(rowWrapper);
         return rowWrapper;
     }
 
     function renderLibrary() {
         if (!contentRows) return;
-        
+
         // Show Skeletons if no data
         if (libraryData.movies.length === 0) {
             contentRows.innerHTML = `
@@ -1639,7 +1876,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         contentRows.innerHTML = '';
         let categories = {};
-        
+
         if (currentTab === 'anime') {
             categories = {
                 "Trending Anime": libraryData.anime,
@@ -1709,7 +1946,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         }
 
         Object.entries(categories).forEach(([name, items]) => {
-            if(items.length > 0) {
+            if (items.length > 0) {
                 const row = createRow(name, items, name.includes("Trending") || name.includes("Popular"));
                 if (row) contentRows.appendChild(row);
             }
@@ -1721,7 +1958,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         heroSection.style.display = 'none';
         contentRows.classList.remove('-mt-20');
         contentRows.classList.add('mt-24');
-        
+
         contentRows.innerHTML = `
             <div class="px-4 md:px-12 mb-8 flex items-center justify-between animate-fade-in">
                 <h2 class="text-xl md:text-3xl font-black uppercase tracking-tighter drop-shadow-2xl">${title}</h2>
@@ -1733,7 +1970,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             <div id="grid-container" class="px-4 md:px-12 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-5 pb-32 animate-slide-up">
             </div>
         `;
-        
+
         const grid = document.getElementById('grid-container');
         items.forEach((item, idx) => {
             const card = createMovieCard(item, false);
@@ -1776,7 +2013,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             "Spine-Tingling Mystery & Horror": "/discover/tv?with_genres=9648&sort_by=popularity.desc",
             "Romantic TV Dramas": "/discover/tv?with_genres=10766&sort_by=popularity.desc"
         };
-        
+
         const baseEndpoint = categoryMap[title];
         if (baseEndpoint) {
             let page = 3;
@@ -1788,18 +2025,18 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             loadMoreBtn.onclick = async () => {
                 loadMoreBtn.innerHTML = 'Connecting to Global Database...';
                 loadMoreBtn.classList.add('opacity-50', 'pointer-events-none');
-                
+
                 const requests = [
                     fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page}`),
-                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page+1}`),
-                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page+2}`)
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page + 1}`),
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page + 2}`)
                 ];
                 page += 3;
-                
+
                 const responses = await Promise.all(requests);
                 loadMoreBtn.classList.remove('opacity-50', 'pointer-events-none');
                 loadMoreBtn.innerHTML = 'Load More Titles';
-                
+
                 responses.forEach(res => {
                     if (res && res.results) {
                         const forceType = title.toLowerCase().includes('anime') ? 'anime' : (baseEndpoint.includes('movie') ? 'movie' : 'tv');
@@ -1814,13 +2051,13 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                     }
                 });
             };
-            
+
         }
 
         document.getElementById('back-to-browse').onclick = () => {
             updateTabState(currentTab); // Returns to the current row-based view
         };
-        
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1841,11 +2078,11 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             items = currentTab === 'anime' ? mergeAnimeLists(animeMatches, items.filter(item => item.isAnime)) : mergeAnimeLists(items, animeMatches);
         }
 
-        if(items.length === 0) {
+        if (items.length === 0) {
             contentRows.innerHTML = '<div class="px-12 py-32 text-zinc-600 text-center text-2xl font-black italic tracking-widest uppercase">No cinematic matches for "' + query + '"</div>';
             return;
         }
-            
+
         contentRows.innerHTML = '';
         const row = createRow(`Search Results for "${query}"`, items, false);
         if (row) contentRows.appendChild(row);
@@ -1865,7 +2102,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
                 heroTitle.textContent = 'LIBRARY CONNECTION DELAY';
                 heroDesc.textContent = 'We are having trouble connecting to the title database. Try loading the catalog again.';
-                if(heroSetup) heroSetup.classList.remove('hidden');
+                if (heroSetup) heroSetup.classList.remove('hidden');
             }
         }, 8000);
 
@@ -1888,29 +2125,29 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             };
         }
 
-        if(homeBtn) homeBtn.onclick = goHome;
-        if(animeNavBtn) animeNavBtn.onclick = goAnime;
-        if(document.getElementById('kdrama-nav-btn')) document.getElementById('kdrama-nav-btn').onclick = goKDrama;
-        if(document.getElementById('tv-nav-btn')) document.getElementById('tv-nav-btn').onclick = goTV;
-        if(document.getElementById('movies-nav-btn')) document.getElementById('movies-nav-btn').onclick = goMovies;
-        if(document.getElementById('popular-nav-btn')) document.getElementById('popular-nav-btn').onclick = goPopular;
-        if(document.getElementById('mylist-nav-btn')) document.getElementById('mylist-nav-btn').onclick = goMyList;
-        
-        if(heroSetup) heroSetup.onclick = () => {
+        if (homeBtn) homeBtn.onclick = goHome;
+        if (animeNavBtn) animeNavBtn.onclick = goAnime;
+        if (document.getElementById('kdrama-nav-btn')) document.getElementById('kdrama-nav-btn').onclick = goKDrama;
+        if (document.getElementById('tv-nav-btn')) document.getElementById('tv-nav-btn').onclick = goTV;
+        if (document.getElementById('movies-nav-btn')) document.getElementById('movies-nav-btn').onclick = goMovies;
+        if (document.getElementById('popular-nav-btn')) document.getElementById('popular-nav-btn').onclick = goPopular;
+        if (document.getElementById('mylist-nav-btn')) document.getElementById('mylist-nav-btn').onclick = goMyList;
+
+        if (heroSetup) heroSetup.onclick = () => {
             heroSetup.classList.add('hidden');
             if (heroTitle) heroTitle.textContent = 'LOADING CONTENT';
             if (heroDesc) heroDesc.textContent = 'Preparing your library. Please wait while we sync fresh picks from the global database...';
             loadData();
         };
-        if(document.getElementById('nav-logo')) document.getElementById('nav-logo').onclick = goHome;
-        if(closeModalBtn) closeModalBtn.onclick = closeModal;
-        if(exitPlayerBtn) exitPlayerBtn.onclick = exitPlayer;
+        if (document.getElementById('nav-logo')) document.getElementById('nav-logo').onclick = goHome;
+        if (closeModalBtn) closeModalBtn.onclick = closeModal;
+        if (exitPlayerBtn) exitPlayerBtn.onclick = exitPlayer;
 
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const value = e.target.value;
                 clearTimeout(searchDebounce);
-                
+
                 if (value.length > 0) {
                     heroSection.style.display = 'none';
                     contentRows.classList.remove('-mt-20');
@@ -1959,7 +2196,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     // Kickoff
     document.addEventListener('DOMContentLoaded', init);
     // Fallback if already loaded
-    if(document.readyState === 'complete' || document.readyState === 'interactive') {
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
         setTimeout(init, 100);
     }
 

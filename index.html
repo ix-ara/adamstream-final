@@ -604,7 +604,7 @@
                         <button id="modal-play"
                             class="bg-netflix-red text-white px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-red-700 transition-colors">
                             <span class="material-symbols-outlined fill"
-                                style="font-variation-settings: 'FILL' 1;">play_arrow</span> Preview
+                                style="font-variation-settings: 'FILL' 1;">play_arrow</span> Play
                         </button>
                         <button id="modal-add-list" type="button"
                             class="bg-white/10 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/30"
@@ -655,16 +655,59 @@
         <div id="player-episode-selector"
             class="absolute top-10 right-10 z-[310] hidden items-center gap-3 bg-black/60 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
             <div id="player-episode-controls" class="hidden items-center gap-3">
-                <span class="text-zinc-300 text-xs font-bold uppercase tracking-wider">Preview</span>
+                <span id="player-title-label" class="text-zinc-300 text-xs font-bold uppercase tracking-wider">Episode</span>
                 <select id="player-season-select"
-                    class="hidden bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
+                    class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
                 </select>
-                <span class="hidden text-zinc-500 font-bold">/</span>
+                <span class="text-zinc-500 font-bold">/</span>
                 <select id="player-episode-select"
-                    class="hidden bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
+                    class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
                 </select>
             </div>
+            <!-- Sub/Dub Toggle (anime only) -->
+            <button id="btn-sub" class="hidden bg-white text-black text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105">Sub</button>
+            <button id="btn-dub" class="hidden bg-zinc-900/80 text-zinc-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105 border border-white/10">Dub</button>
+            <!-- Next Source (anime) -->
+            <button id="btn-next-source" class="hidden items-center gap-1 bg-zinc-800/90 hover:bg-netflix-red text-zinc-300 hover:text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10">
+                <span class="material-symbols-outlined text-sm leading-none">skip_next</span>
+                <span class="hidden sm:inline">Next Source</span>
+            </button>
+            <!-- Trailer Fallback -->
+            <button id="player-trailer-btn" class="hidden items-center gap-1 bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10">
+                <span class="material-symbols-outlined text-sm leading-none">movie</span>
+                <span class="hidden sm:inline">Trailer</span>
+            </button>
         </div>
+
+        <!-- Server Switcher (movies/TV) -->
+        <div id="player-server-controls"
+            class="absolute bottom-8 left-1/2 -translate-x-1/2 z-[310] hidden items-center gap-2 bg-black/70 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
+            <span class="text-zinc-500 text-[10px] font-black uppercase tracking-widest mr-1">Server</span>
+            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-netflix-red text-white" data-server="alpha">Alpha</button>
+            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="delta">Delta</button>
+            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="prime">Prime</button>
+            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="legacy">Legacy</button>
+        </div>
+
+        <!-- Active Source Badge (anime) -->
+        <div id="player-source-badge"
+            class="absolute bottom-8 left-1/2 -translate-x-1/2 z-[310] hidden items-center gap-2 bg-black/70 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 pointer-events-none">
+            <span class="material-symbols-outlined text-netflix-red text-sm">stream</span>
+            <span id="player-source-name" class="text-zinc-300 text-[10px] font-black uppercase tracking-widest">Loading source...</span>
+        </div>
+
+        <!-- Dub Hint Toast -->
+        <div id="dub-hint"
+            class="hidden absolute bottom-24 left-1/2 -translate-x-1/2 z-[310] items-center gap-3 bg-netflix-red/90 px-5 py-3 rounded-xl backdrop-blur-md border border-white/10 text-white text-xs font-bold shadow-2xl">
+            <span class="material-symbols-outlined text-sm">volume_up</span>
+            English dub selected — searching GogoAnime &amp; VidLink sources...
+        </div>
+
+        <!-- Kurdish Subtitle Toggle -->
+        <button id="player-sub-btn" class="hidden absolute top-10 left-44 z-[310] items-center gap-1 bg-zinc-800/90 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xs font-bold px-3 py-2 rounded-full transition-all border border-white/10">
+            <span class="material-symbols-outlined text-sm">subtitles</span>
+            <span>CC</span>
+        </button>
 
         <!-- Buffering Overlay - starts hidden, shown only during load -->
         <div id="player-loader"
