@@ -1,5 +1,5 @@
 /* streaming-script.js - guarded DOM access and small robustness fixes */
-let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
+let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '547c2cf5311a8f4499454a9fddb0fb8d';
 (() => {
     // Initialization Guard
     let isInitialized = false;
@@ -154,29 +154,35 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // SUB SOURCES — Pure iframe embeds (AniKai style)
     const ANIME_SUB_SOURCES = [
-        // 1. VidSrc.to (AniList ID) — Exact AniKai style mapping
+        // 1. VidSrc ICU - Stable
+        {
+            name: 'VidSrc ICU Sub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/0` : null
+        },
+        // 2. VidSrc.to (AniList ID) — Exact AniKai style mapping
         {
             name: 'VidSrc.to Sub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.to/embed/anime/${anilistId}/${animeEpisode}` : null
         },
-        // 2. VidSrc.to (TMDB Fallback)
+        // 3. VidSrc.to (TMDB Fallback)
         {
             name: 'VidSrc.to TV',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
         },
-        // 2. VidSrc.me — Extremely stable fallback
+        // 4. VidSrc.me — Extremely stable fallback
         {
             name: 'VidSrc.me Sub',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.me/embed/tv/${tmdbId}/${season}/${episode}` : null
         },
-        // 3. Vidsrc.cc (AniList ID) — Only as a backup
+        // 5. Vidsrc.cc (AniList ID) — Only as a backup
         {
             name: 'VidSrc.cc Sub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/${anilistId}/${animeEpisode}/sub` : null
         },
-        // 4. MultiEmbed
+        // 6. MultiEmbed
         {
             name: 'MultiEmbed Sub',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://multiembed.mov/directstream.php?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` : null
@@ -185,29 +191,29 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // DUB SOURCES — Pure iframe embeds
     const ANIME_DUB_SOURCES = [
-        // 1. VidSrc.to Dub (AniList ID)
-        {
-            name: 'VidSrc.to Dub',
-            needsAnimeIds: true,
-            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.to/embed/anime/${anilistId}/${animeEpisode}` : null
-        },
-        // 2. VidSrc.to Dub (TMDB Fallback)
-        {
-            name: 'VidSrc.to TV',
-            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
-        },
-        // 2. VidSrc.me Dub
-        {
-            name: 'VidSrc.me Dub',
-            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.me/embed/tv/${tmdbId}/${season}/${episode}` : null
-        },
-        // 3. VidSrc ICU (Reliable for Dubs)
+        // 1. VidSrc ICU (Reliable for Dubs)
         {
             name: 'VidSrc ICU Dub',
             needsAnimeIds: true,
             build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.icu/embed/anime/${anilistId}/${animeEpisode}/1` : null
         },
-        // 4. Cinezo Dub
+        // 2. VidSrc.to Dub (AniList ID)
+        {
+            name: 'VidSrc.to Dub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.to/embed/anime/${anilistId}/${animeEpisode}` : null
+        },
+        // 3. VidSrc.to Dub (TMDB Fallback)
+        {
+            name: 'VidSrc.to TV',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
+        },
+        // 4. VidSrc.me Dub
+        {
+            name: 'VidSrc.me Dub',
+            build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.me/embed/tv/${tmdbId}/${season}/${episode}` : null
+        },
+        // 5. Cinezo Dub
         {
             name: 'Cinezo Dub',
             needsAnimeIds: true,
@@ -251,13 +257,17 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         let idsResolved = false;
 
         for (let i = 0; i < sources.length; i++) {
-            const sourceIndex = currentAnimeSourceIdx % sources.length;
+            const sourceIndex = (currentAnimeSourceIdx + i) % sources.length;
             const source = sources[sourceIndex];
 
             // Only fetch external IDs if this source actually needs them
             if (source.needsAnimeIds && !idsResolved) {
-                ids = await fetchAnimeIds(item, episodeInfo.season);
-                idsResolved = true;
+                try {
+                    ids = await fetchAnimeIds(item, episodeInfo.season);
+                    idsResolved = true;
+                } catch (e) {
+                    console.warn("Failed to fetch anime IDs", e);
+                }
             }
 
             const animeEpisode = ids.useSeasonEpisode ? episodeInfo.episode : episodeInfo.absoluteEpisode;
@@ -281,18 +291,22 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
             if (url) {
                 console.log(`✅ Anime source: [${source.name}] → ${url}`);
+                currentAnimeSourceIdx = sourceIndex; // Persist successful source
                 return url;
             }
 
             console.log(`⚠️ Anime source [${source.name}] returned null, trying next...`);
-            currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
         }
 
         // NUCLEAR OPTION: If all anime sources fail, use the standard TV fallback
         // This uses the same logic as regular movies/TV which we know works.
-        const tvFallback = `https://vidsrc.to/embed/tv/${item.tmdb_id}/${episodeInfo.season}/${episodeInfo.episode}`;
-        console.log(`🚀 All anime sources failed. Using TV Fallback: ${tvFallback}`);
-        return tvFallback;
+        const tvFallback = item.tmdb_id ? `https://vidsrc.to/embed/tv/${item.tmdb_id}/${episodeInfo.season}/${episodeInfo.episode}` : null;
+        if (tvFallback) {
+            console.log(`🚀 All anime sources failed. Using TV Fallback: ${tvFallback}`);
+            return tvFallback;
+        }
+
+        return null;
     }
 
     function getAnimeSourceLabel() {
@@ -403,7 +417,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ query, variables: { search: candidate.title } }),
-                    signal: AbortSignal.timeout(5000)
+                    signal: AbortSignal.timeout(10000)
                 });
                 if (!res.ok) continue;
 
@@ -445,7 +459,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         for (const candidate of candidates) {
             try {
                 const res = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(candidate.title)}&limit=1`, {
-                    signal: AbortSignal.timeout(5000)
+                    signal: AbortSignal.timeout(10000)
                 });
                 if (!res.ok) continue;
                 const data = await res.json();
@@ -1700,7 +1714,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         card.innerHTML = `
             <img src="${item.poster}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="${item.title}" loading="lazy">
             ${isTop10 ? `<div class="absolute top-2 left-2 bg-netflix-red text-white text-[8px] font-black py-1 px-2 uppercase tracking-[0.16em] shadow-lg z-10 rounded">Spotlight</div>` : ''}
-            <div class="absolute inset-x-0 bottom-0 bg-[#1d1b17]/95 border-t border-white/10 backdrop-blur-md p-3">
+            <div class="absolute inset-x-0 bottom-0 bg-[#1d1b17]/95 border-t border-white/10 backdrop-blur-xl p-4">
                 <div class="flex gap-2 mb-2">
                    <span class="bg-netflix-red text-white w-8 h-8 rounded-md flex items-center justify-center shadow-2xl transition-transform group-hover:scale-105"><span class="material-symbols-outlined fill text-sm">play_arrow</span></span>
                    <span class="bg-white/10 text-white w-8 h-8 rounded-md flex items-center justify-center border border-white/15 hover:bg-white/15 shadow-2xl"><span class="material-symbols-outlined text-sm">add</span></span>
@@ -1722,7 +1736,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (!items || items.length === 0) return null;
 
         const rowWrapper = document.createElement('div');
-        rowWrapper.className = 'px-4 md:px-12 row-animate mb-8';
+        rowWrapper.className = 'px-4 md:px-12 row-animate mb-12';
 
         const titleWrapper = document.createElement('div');
         titleWrapper.className = 'flex items-center justify-between mb-2 pr-4';
@@ -1760,7 +1774,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         };
 
         items.forEach((item, idx) => {
-            scrollContainer.appendChild(createMovieCard(item, isTrending && idx < 5));
+            const card = createMovieCard(item, isTrending && idx < 5);
+            card.style.animationDelay = `${idx * 50}ms`;
+            scrollContainer.appendChild(card);
         });
 
         rowWrapper.appendChild(titleWrapper);
@@ -1773,10 +1789,11 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('visible');
+                    entry.target.classList.add('animate-fade-in-up');
                     observer.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.05 });
+        }, { threshold: 0.1 });
 
         observer.observe(rowWrapper);
         return rowWrapper;
