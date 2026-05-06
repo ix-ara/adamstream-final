@@ -29,7 +29,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const playerEpisodeSelector = document.getElementById('player-episode-selector');
     const playerSeasonSelect = document.getElementById('player-season-select');
     const playerEpisodeSelect = document.getElementById('player-episode-select');
+    const playerSubBtn = document.getElementById('player-sub-btn');
     const playerLoader = document.getElementById('player-loader');
+    const playerServerControls = document.getElementById('player-server-controls');
     const playerDubToggle = document.getElementById('player-dub-toggle');
     const btnSub = document.getElementById('btn-sub');
     const btnDub = document.getElementById('btn-dub');
@@ -129,24 +131,99 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         }
     };
 
-    // Higher-reliability anime source order for sub / dub playback
+    // Anime endpoints need explicit sub/dub routes. TV endpoints can ignore language hints.
     const ANIME_SUB_SOURCES = [
-        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&lang=ja&language=ja&audio=ja&sub=ja`,
-        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&lang=ja&language=ja&audio=ja&sub=ja`,
-        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}?lang=ja&language=ja&audio=ja&sub=ja`,
-        (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}?lang=ja&language=ja&audio=ja&sub=ja`
+        {
+            name: 'Vidsrc CC',
+            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true`
+        },
+        {
+            name: 'VidLink',
+            needsAnimeIds: true,
+            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/sub` : null
+        },
+        {
+            name: 'Vidsrc Player',
+            needsAnimeIds: true,
+            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=false` : null
+        }
     ];
     const ANIME_DUB_SOURCES = [
-        (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`,
-        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&dub=1`,
-        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}?dub=1`
+        {
+            name: 'Vidsrc CC',
+            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true`
+        },
+        {
+            name: 'VidLink',
+            needsAnimeIds: true,
+            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/dub` : null
+        },
+        {
+            name: 'Vidsrc Player',
+            needsAnimeIds: true,
+            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=true` : null
+        }
     ];
     let currentAnimeSourceIdx = 0;
     let animeSourceFailCount = 0;
 
-    function getAnimeSourceUrl(item, season, episode) {
+    function getAnimeEpisodeInfo(season, episode) {
+        const mappedIndex = currentAnimeMap.findIndex(m => m && m.season === Number(season) && m.episode === Number(episode));
+        if (mappedIndex !== -1) {
+            return {
+                season: currentAnimeMap[mappedIndex].season,
+                episode: currentAnimeMap[mappedIndex].episode,
+                absoluteEpisode: mappedIndex + 1
+            };
+        }
+
+        const absoluteEpisode = Number(episode) || 1;
+        const mapped = currentAnimeMap[absoluteEpisode - 1];
+        return {
+            season: mapped ? mapped.season : (Number(season) || 1),
+            episode: mapped ? mapped.episode : absoluteEpisode,
+            absoluteEpisode
+        };
+    }
+
+    function getCurrentPlaybackPosition() {
+        if (currentPlayingItem && currentPlayingItem.isAnime && playerEpisodeSelect) {
+            const absoluteEpisode = Number(playerEpisodeSelect.value) || 1;
+            const mapped = currentAnimeMap[absoluteEpisode - 1];
+            return {
+                season: mapped ? mapped.season : 1,
+                episode: mapped ? mapped.episode : absoluteEpisode
+            };
+        }
+
+        return {
+            season: playerSeasonSelect ? (Number(playerSeasonSelect.value) || 1) : 1,
+            episode: playerEpisodeSelect ? (Number(playerEpisodeSelect.value) || 1) : 1
+        };
+    }
+
+    async function getAnimeSourceUrl(item, season, episode) {
         const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
-        return sources[currentAnimeSourceIdx % sources.length](item.tmdb_id, season, episode);
+        const episodeInfo = getAnimeEpisodeInfo(season, episode);
+        let ids = { anilistId: null, malId: null };
+
+        for (let i = 0; i < sources.length; i++) {
+            const sourceIndex = currentAnimeSourceIdx % sources.length;
+            if (sources[sourceIndex].needsAnimeIds && !ids.anilistId && !ids.malId) {
+                ids = await fetchAnimeIds(item.title);
+            }
+            const url = await sources[sourceIndex].build({
+                tmdbId: item.tmdb_id,
+                malId: ids.malId,
+                anilistId: ids.anilistId,
+                absoluteEpisode: episodeInfo.absoluteEpisode
+            });
+
+            if (url) return url;
+            currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
+        }
+
+        return null;
     }
 
     function getAnimeSourceLabel() {
@@ -170,15 +247,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         btnDub.classList.toggle('text-zinc-300', !animeDubMode);
     }
 
-    // Cache AniList MAL ID lookups so we don't re-fetch
+    // Cache AniList lookups so we don't re-fetch anime-specific embed ids
     const anilistCache = {};
 
-    // Fetch MAL ID from AniList by anime title (free API, no key needed)
-    async function fetchMalId(title) {
+    async function fetchAnimeIds(title) {
         const key = title.toLowerCase().trim();
         if (anilistCache[key] !== undefined) return anilistCache[key];
         try {
-            const query = `{Media(search:${JSON.stringify(title)},type:ANIME){idMal}}`;
+            const query = `{Media(search:${JSON.stringify(title)},type:ANIME){id idMal}}`;
             const res = await fetch('https://graphql.anilist.co', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -186,12 +262,16 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 signal: AbortSignal.timeout(4000)
             });
             const data = await res.json();
-            const malId = data?.data?.Media?.idMal || null;
-            anilistCache[key] = malId;
-            return malId;
+            const ids = {
+                anilistId: data?.data?.Media?.id || null,
+                malId: data?.data?.Media?.idMal || null
+            };
+            anilistCache[key] = ids;
+            return ids;
         } catch (err) {
-            anilistCache[key] = null;
-            return null;
+            const ids = { anilistId: null, malId: null };
+            anilistCache[key] = ids;
+            return ids;
         }
     }
 
@@ -796,13 +876,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 // Use anime map for absolute numbering
                 const total = currentAnimeMap.length || 12;
                 const maxEps = total > 1500 ? 1500 : total;
+                const selectedEpisode = getAnimeEpisodeInfo(currentS || 1, currentE || 1).absoluteEpisode;
                 for(let i = 1; i <= maxEps; i++) {
                     const opt = document.createElement('option');
                     opt.value = i;
                     opt.textContent = `Ep ${i}`;
                     opt.style.background = '#18181b';
                     opt.style.color = '#fff';
-                    if (keepE && i === Number(currentE)) opt.selected = true;
+                    if (keepE && i === Number(selectedEpisode)) opt.selected = true;
                     playerEpisodeSelect.appendChild(opt);
                 }
             } else {
@@ -850,6 +931,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
         const s = season || 1;
         const e = episode || 1;
+        const animeEpisodeInfo = item.isAnime ? getAnimeEpisodeInfo(s, e) : null;
         let url = '';
         let subtitle = '';
 
@@ -860,9 +942,22 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 playerEpisodeSelector.classList.add('hidden');
                 playerEpisodeSelector.classList.remove('flex');
             }
+            if (playerDubToggle) {
+                playerDubToggle.classList.add('hidden');
+                playerDubToggle.classList.remove('flex');
+            }
+            if (playerSubBtn) playerSubBtn.classList.remove('hidden');
+            if (playerServerControls) playerServerControls.classList.remove('hidden');
         } else {
             if (item.isAnime) {
-                url = getAnimeSourceUrl(item, s, e);
+                url = await getAnimeSourceUrl(item, s, e);
+                if (!url) {
+                    playerTitle.textContent = `${item.title} - Playback unavailable`;
+                    if (playerLoader) {
+                        playerLoader.classList.add('opacity-0', 'pointer-events-none');
+                    }
+                    return;
+                }
             } else {
                 url = getServerUrl(item, s, e, currentServer);
                 if (currentKurdishSub && currentServer === 'alpha') {
@@ -871,9 +966,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             }
 
             let epLabel = e;
-            if (item.isAnime && currentAnimeMap && currentAnimeMap.length > 0) {
-                const idx = currentAnimeMap.findIndex(m => m && m.season === s && m.episode === e);
-                if (idx !== -1) epLabel = idx + 1;
+            if (animeEpisodeInfo) {
+                epLabel = animeEpisodeInfo.absoluteEpisode;
             }
             subtitle = item.isAnime ? ` - Ep ${epLabel}` : ` - S${s} E${e}`;
 
@@ -887,9 +981,13 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 if (item.isAnime) {
                     playerDubToggle.classList.remove('hidden');
                     playerDubToggle.classList.add('flex');
+                    if (playerSubBtn) playerSubBtn.classList.add('hidden');
+                    if (playerServerControls) playerServerControls.classList.add('hidden');
                 } else {
                     playerDubToggle.classList.add('hidden');
                     playerDubToggle.classList.remove('flex');
+                    if (playerSubBtn) playerSubBtn.classList.remove('hidden');
+                    if (playerServerControls) playerServerControls.classList.remove('hidden');
                 }
             }
         }
@@ -904,16 +1002,10 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 updateAnimeToggleButtons();
 
                 if (animeSourceFailCount <= sources.length * 2) {
-                    playerIframe.src = sources[currentAnimeSourceIdx](currentPlayingItem.tmdb_id, s, e);
-                    return;
-                }
-
-                // After exhausting the current mode, fall back to the opposite mode once
-                if (animeDubMode) {
-                    animeDubMode = false;
-                    currentAnimeSourceIdx = 0;
-                    updateAnimeToggleButtons();
-                    playerIframe.src = getAnimeSourceUrl(currentPlayingItem, s, e);
+                    const nextAnimeUrl = await getAnimeSourceUrl(currentPlayingItem, s, e);
+                    if (nextAnimeUrl) {
+                        playerIframe.src = nextAnimeUrl;
+                    }
                     return;
                 }
 
@@ -981,9 +1073,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             updateAnimeToggleButtons();
             if (dubHint) dubHint.classList.add('hidden');
             if (currentPlayingItem) {
-                const s = playerSeasonSelect ? Number(playerSeasonSelect.value) : 1;
-                const e = playerEpisodeSelect ? Number(playerEpisodeSelect.value) : 1;
-                playMedia(currentPlayingItem, s, e);
+                const position = getCurrentPlaybackPosition();
+                playMedia(currentPlayingItem, position.season, position.episode);
             }
         });
     }
@@ -1000,9 +1091,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 setTimeout(() => dubHint.classList.add('hidden'), 5000);
             }
             if (currentPlayingItem) {
-                const s = playerSeasonSelect ? Number(playerSeasonSelect.value) : 1;
-                const e = playerEpisodeSelect ? Number(playerEpisodeSelect.value) : 1;
-                playMedia(currentPlayingItem, s, e);
+                const position = getCurrentPlaybackPosition();
+                playMedia(currentPlayingItem, position.season, position.episode);
             }
         };
     }
@@ -1016,9 +1106,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             refreshServerButtons();
 
             if (currentPlayingItem) {
-                const s = playerSeasonSelect ? Number(playerSeasonSelect.value) : 1;
-                const e = playerEpisodeSelect ? Number(playerEpisodeSelect.value) : 1;
-                playMedia(currentPlayingItem, s, e);
+                const position = getCurrentPlaybackPosition();
+                playMedia(currentPlayingItem, position.season, position.episode);
             }
         };
     });
@@ -1355,13 +1444,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             }
         }, 8000);
 
-        const subBtn = document.getElementById('player-sub-btn');
-        if (subBtn) {
-            subBtn.onclick = () => {
+        if (playerSubBtn) {
+            playerSubBtn.onclick = () => {
+                if (currentPlayingItem && currentPlayingItem.isAnime) return;
                 currentKurdishSub = !currentKurdishSub;
-                subBtn.classList.toggle('active', currentKurdishSub);
+                playerSubBtn.classList.toggle('active', currentKurdishSub);
                 // Restart player with subtitle if enabled
-                playMedia(currentPlayingItem, Number(playerSeasonSelect.value) || null, Number(playerEpisodeSelect.value) || null);
+                const position = getCurrentPlaybackPosition();
+                playMedia(currentPlayingItem, position.season, position.episode);
             };
         }
 
