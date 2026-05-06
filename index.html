@@ -629,6 +629,19 @@
                     </div>
                     <p id="modal-desc" class="text-lg text-zinc-200 leading-relaxed"></p>
 
+                    <!-- Episodes Section -->
+                    <div id="episodes-section" class="hidden mt-10 space-y-6">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                            <h4 class="text-xl font-bold uppercase tracking-tighter">Episodes</h4>
+                            <select id="season-select" class="bg-zinc-800 text-white text-sm border border-white/10 rounded-md px-3 py-1 outline-none cursor-pointer font-bold focus:ring-2 focus:ring-netflix-red transition-all">
+                                <!-- Seasons populated by JS -->
+                            </select>
+                        </div>
+                        <div id="episodes-list" class="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                            <!-- Episode cards populated by JS -->
+                        </div>
+                    </div>
+
                 </div>
                 <div class="space-y-4">
                     <div class="text-sm text-zinc-400">

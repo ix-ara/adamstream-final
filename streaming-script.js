@@ -971,28 +971,38 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     async function loadDeferredData() {
         try {
             const deferredEndpoints = {
-                action: fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'),
-                comedy: fetchTMDB('/discover/movie?with_genres=35&sort_by=popularity.desc'),
-                horror: fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'),
-                scifi: fetchTMDB('/discover/movie?with_genres=878&sort_by=popularity.desc'),
-                crimeTv: fetchTMDB('/discover/tv?with_genres=80&sort_by=popularity.desc'),
-                actionMovies: fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'),
-                horrorMovies: fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'),
-                romanceMovies: fetchTMDB('/discover/movie?with_genres=10749&sort_by=popularity.desc'),
-                actionTV: fetchTMDB('/discover/tv?with_genres=10759&sort_by=popularity.desc'),
-                horrorTV: fetchTMDB('/discover/tv?with_genres=9648&sort_by=popularity.desc'),
-                romanceTV: fetchTMDB('/discover/tv?with_genres=10766&sort_by=popularity.desc'),
-                actionAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc'),
-                horrorAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc'),
-                romanceAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc'),
-                actionKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc'),
-                horrorKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc'),
-                romanceKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc'),
-                animeTop: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000')
+                action: '/discover/movie?with_genres=28&sort_by=popularity.desc',
+                comedy: '/discover/movie?with_genres=35&sort_by=popularity.desc',
+                horror: '/discover/movie?with_genres=27&sort_by=popularity.desc',
+                scifi: '/discover/movie?with_genres=878&sort_by=popularity.desc',
+                crimeTv: '/discover/tv?with_genres=80&sort_by=popularity.desc',
+                actionMovies: '/discover/movie?with_genres=28&sort_by=popularity.desc',
+                horrorMovies: '/discover/movie?with_genres=27&sort_by=popularity.desc',
+                romanceMovies: '/discover/movie?with_genres=10749&sort_by=popularity.desc',
+                actionTV: '/discover/tv?with_genres=10759&sort_by=popularity.desc',
+                horrorTV: '/discover/tv?with_genres=9648&sort_by=popularity.desc',
+                romanceTV: '/discover/tv?with_genres=10766&sort_by=popularity.desc',
+                actionAnime: '/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc',
+                horrorAnime: '/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc',
+                romanceAnime: '/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc',
+                actionKDrama: '/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc',
+                horrorKDrama: '/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc',
+                romanceKDrama: '/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc',
+                animeTop: '/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000'
             };
 
-            const deferredResults = await Promise.allSettled(Object.values(deferredEndpoints).map(promise => fetchWithTimeout(promise, 10000)));
-            const deferredValues = deferredResults.map(result => result.status === 'fulfilled' ? result.value : null);
+            const deferredValues = [];
+            const keys = Object.keys(deferredEndpoints);
+
+            // Stagger requests in small batches to prevent rate limiting
+            for (let i = 0; i < keys.length; i += 3) {
+                const batchKeys = keys.slice(i, i + 3);
+                const batchPromises = batchKeys.map(key => fetchWithTimeout(fetchTMDB(deferredEndpoints[key]), 12000));
+                const batchResults = await Promise.allSettled(batchPromises);
+                batchResults.forEach(res => deferredValues.push(res.status === 'fulfilled' ? res.value : null));
+                if (i + 3 < keys.length) await delay(300); // 300ms breather
+            }
+
             const [actionRes, comedyRes, horrorRes, scifiRes, crimeTvRes, actionMoviesRes, horrorMoviesRes, romanceMoviesRes, actionTVRes, horrorTVRes, romanceTVRes, actionAnimeRes, horrorAnimeRes, romanceAnimeRes, actionKDramaRes, horrorKDramaRes, romanceKDramaRes, animeTopRes] = deferredValues;
 
             if (actionRes) libraryData.action = actionRes.results.map(i => formatItem(i, 'movie'));
@@ -1339,6 +1349,55 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     }
 
     // --- MODAL ---
+    async function renderEpisodeList(item, seasonNumber) {
+        const list = document.getElementById('episodes-list');
+        if (!list) return;
+        list.innerHTML = '<div class="py-10 text-center text-zinc-500 animate-pulse">Scanning database...</div>';
+
+        let episodes = [];
+        if (item.tmdb_id) {
+            const data = await fetchTMDB(`/tv/${item.tmdb_id}/season/${seasonNumber}`);
+            episodes = data?.episodes || [];
+        } else if (item.isAnime) {
+            episodes = Array.from({ length: item.animeEpisodes || 12 }, (_, i) => ({
+                episode_number: i + 1,
+                name: `Episode ${i + 1}`,
+                overview: 'No description available for this episode.'
+            }));
+        }
+
+        list.innerHTML = '';
+        if (episodes.length === 0) {
+            list.innerHTML = '<div class="py-10 text-center text-zinc-500">No episodes found for this season.</div>';
+            return;
+        }
+
+        episodes.forEach(ep => {
+            const card = document.createElement('div');
+            card.className = 'flex gap-4 p-3 bg-white/5 border border-white/5 rounded-lg hover:bg-white/10 transition-all cursor-pointer group hover:border-netflix-red/30';
+            const img = ep.still_path ? `${IMG_BG_BASE}${ep.still_path}` : item.backdrop;
+            card.innerHTML = `
+                <div class="relative flex-shrink-0 w-28 md:w-40 aspect-video rounded overflow-hidden">
+                    <img src="${img}" class="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" alt="">
+                    <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span class="material-symbols-outlined text-white">play_arrow</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <h5 class="text-sm font-bold truncate group-hover:text-netflix-red transition-colors">${ep.episode_number}. ${ep.name}</h5>
+                    </div>
+                    <p class="text-[11px] text-zinc-400 line-clamp-2 md:line-clamp-3 leading-relaxed">${ep.overview || 'No summary available.'}</p>
+                </div>
+            `;
+            card.onclick = () => {
+                closeModal();
+                playMedia(item, seasonNumber, ep.episode_number);
+            };
+            list.appendChild(card);
+        });
+    }
+
     async function openModal(item) {
         if (!item || !detailModal) return;
         document.getElementById('modal-image').src = item.backdrop || item.poster;
@@ -1357,6 +1416,29 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (epSection) epSection.classList.add('hidden');
         if (list) list.innerHTML = '';
         if (seasonSelect) seasonSelect.innerHTML = '';
+
+        if (!item.isMovie) {
+            const seasons = await ensureSeasonData(item);
+            if (seasons && seasons.length > 0) {
+                if (epSection) epSection.classList.remove('hidden');
+
+                if (seasonSelect) {
+                    seasonSelect.innerHTML = '';
+                    seasons.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = s.season_number;
+                        opt.textContent = s.name || `Season ${s.season_number}`;
+                        seasonSelect.appendChild(opt);
+                    });
+
+                    seasonSelect.onchange = (e) => {
+                        renderEpisodeList(item, Number(e.target.value));
+                    };
+                }
+
+                renderEpisodeList(item, seasons[0].season_number);
+            }
+        }
 
         document.getElementById('modal-play').onclick = () => {
             closeModal();
@@ -1953,6 +2035,13 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     function init() {
         if (isInitialized) return;
         isInitialized = true;
+
+        // Restore saved API Key
+        const savedKey = localStorage.getItem('tmdb_api_key');
+        if (savedKey && savedKey.length > 20) {
+            TMDB_API_KEY = savedKey;
+        }
+
         initAuth();
 
         // Safety Timeout: Force hide the loader or show delay message if hung
