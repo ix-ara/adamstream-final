@@ -131,10 +131,10 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // Higher-reliability anime source order for sub / dub playback
     const ANIME_SUB_SOURCES = [
-        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`,
-        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&lang=ja`,
         (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&lang=ja`,
-        (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`
+        (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}?autoplay=true&lang=ja`,
+        (id, s, e) => `https://vidsrc.icu/embed/tv/${id}/${s}/${e}?lang=ja`,
+        (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}?lang=ja`
     ];
     const ANIME_DUB_SOURCES = [
         (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&dub=1`,
