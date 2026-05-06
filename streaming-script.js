@@ -618,7 +618,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         const epSection = document.getElementById('episodes-section');
         const list = document.getElementById('episodes-list');
         const seasonSelect = document.getElementById('season-select');
-        const seasonLabel = seasonSelect.previousElementSibling;
         
         if (item.isMovie) {
             epSection.classList.add('hidden');
@@ -641,7 +640,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (!details || !details.seasons) {
                 list.innerHTML = '<p class="text-zinc-400">Episode details unavailable.</p>';
                 seasonSelect.classList.add('hidden');
-                if(seasonLabel) seasonLabel.classList.add('hidden');
                 return;
             }
 
@@ -649,13 +647,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (seasons.length === 0) {
                 list.innerHTML = '<p class="text-zinc-400">No seasons available.</p>';
                 seasonSelect.classList.add('hidden');
-                if(seasonLabel) seasonLabel.classList.add('hidden');
                 return;
             }
 
-            // Always show season selector for anime and multi-season TV
+            // Always show season selector
             seasonSelect.classList.remove('hidden');
-            if(seasonLabel) seasonLabel.classList.remove('hidden');
             
             currentTvSeasons = seasons;
             currentAnimeMap = [];
@@ -689,9 +685,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                     ep.type = 'button';
                     ep.className = 'w-full text-left flex items-center gap-4 p-4 rounded-md hover:bg-zinc-800/50 cursor-pointer group transition-colors border border-transparent hover:border-zinc-700';
                     
-                    const epLabel = item.isAnime ? `Ep ${i}` : `Episode ${i}`;
-                    const epDesc = item.isAnime ? `Play Season ${seasonNum} Episode ${i}` : `Stream S${seasonNum} E${i}`;
-                    
                     ep.innerHTML = `
                         <span class="text-xl font-bold text-zinc-600 group-hover:text-white w-6 text-center">${i}</span>
                         <div class="relative w-32 h-18 flex-shrink-0">
@@ -699,8 +692,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                             <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity scale-75 text-3xl drop-shadow-lg">play_circle</span>
                         </div>
                         <div class="flex-1">
-                            <h5 class="text-sm font-bold mb-1">${epLabel}</h5>
-                            <p class="text-xs text-zinc-500 line-clamp-1">${epDesc} of ${item.title}</p>
+                            <h5 class="text-sm font-bold mb-1">Episode ${i}</h5>
+                            <p class="text-xs text-zinc-500 line-clamp-1">Season ${seasonNum} - Episode ${i}</p>
                         </div>
                     `;
                     
