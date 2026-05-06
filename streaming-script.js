@@ -104,6 +104,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     let searchDebounce;
     let currentPlayingItem = null;
     let currentTvSeasons = [];
+    let currentSeasonsItemId = null;
     let currentAnimeMap = []; // absolute ep index → { season, episode }
     let currentAnimeSeasonNames = {};
     let animeDubMode = false;
@@ -183,10 +184,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             name: 'VidLink',
             needsAnimeIds: true,
             build: async ({ malId, animeEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${animeEpisode}/sub` : null
-        },
-        {
-            name: "Let's Embed",
-            build: ({ tmdbId, season, episode }) => `https://letsembed.cc/embed/anime/?id=${tmdbId}/${season}/${episode}`
         },
         {
             name: 'Vidsrc TV',
@@ -274,15 +271,6 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     }
 
     function getCurrentPlaybackPosition() {
-        if (currentPlayingItem && currentPlayingItem.isAnime && playerEpisodeSelect) {
-            const absoluteEpisode = Number(playerEpisodeSelect.value) || 1;
-            const mapped = currentAnimeMap[absoluteEpisode - 1];
-            return {
-                season: mapped ? mapped.season : 1,
-                episode: mapped ? mapped.episode : absoluteEpisode
-            };
-        }
-
         return {
             season: playerSeasonSelect ? (Number(playerSeasonSelect.value) || 1) : 1,
             episode: playerEpisodeSelect ? (Number(playerEpisodeSelect.value) || 1) : 1
@@ -589,6 +577,33 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         } catch(e) {
             return null;
         }
+    }
+
+    async function ensureSeasonData(item) {
+        if (!item || item.isMovie) return [];
+        if (currentSeasonsItemId === item.tmdb_id && currentTvSeasons.length > 0) {
+            return currentTvSeasons;
+        }
+
+        const details = await fetchTvDetails(item.tmdb_id);
+        const seasons = (details?.seasons || []).filter(s => s.season_number > 0);
+
+        currentSeasonsItemId = item.tmdb_id;
+        currentTvSeasons = seasons;
+        currentAnimeMap = [];
+        currentAnimeSeasonNames = {};
+
+        if (item.isAnime) {
+            seasons.forEach(season => {
+                currentAnimeSeasonNames[season.season_number] = season.name || `Season ${season.season_number}`;
+                const count = season.episode_count || 0;
+                for (let e = 1; e <= count; e++) {
+                    currentAnimeMap.push({ season: season.season_number, episode: e });
+                }
+            });
+        }
+
+        return seasons;
     }
 
     async function loadData() {
@@ -1043,37 +1058,15 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 playMedia(item, 1, 1);
             };
 
-            const details = await fetchTvDetails(item.tmdb_id);
-            if (!details || !details.seasons) {
+            const seasons = await ensureSeasonData(item);
+            if (!seasons || seasons.length === 0) {
                 list.innerHTML = '<p class="text-zinc-400">Episode details unavailable.</p>';
-                seasonSelect.classList.add('hidden');
-                return;
-            }
-
-            const seasons = details.seasons.filter(s => s.season_number > 0);
-            if (seasons.length === 0) {
-                list.innerHTML = '<p class="text-zinc-400">No seasons available.</p>';
                 seasonSelect.classList.add('hidden');
                 return;
             }
 
             // Always show season selector
             seasonSelect.classList.remove('hidden');
-            
-            currentTvSeasons = seasons;
-            currentAnimeMap = [];
-            currentAnimeSeasonNames = {};
-
-            // Build anime episode map if needed
-            if (item.isAnime) {
-                seasons.forEach(season => {
-                    currentAnimeSeasonNames[season.season_number] = season.name || `Season ${season.season_number}`;
-                    const count = season.episode_count || 0;
-                    for (let e = 1; e <= count; e++) {
-                        currentAnimeMap.push({ season: season.season_number, episode: e });
-                    }
-                });
-            }
 
             // Populate season dropdown
             seasons.forEach(s => {
@@ -1175,82 +1168,51 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     function populatePlayerSelectors(currentS, currentE) {
         if (!playerSeasonSelect || !playerEpisodeSelect) return;
         playerSeasonSelect.innerHTML = '';
-        if (currentPlayingItem && currentPlayingItem.isAnime) {
-            // For anime: show a single placeholder
+        currentTvSeasons.forEach(s => {
             const opt = document.createElement('option');
-            opt.value = 1;
-            opt.textContent = 'Eps';
+            opt.value = s.season_number;
+            opt.textContent = `S${s.season_number}`;
             opt.style.background = '#18181b';
             opt.style.color = '#fff';
+            if (s.season_number === Number(currentS)) opt.selected = true;
             playerSeasonSelect.appendChild(opt);
-            playerSeasonSelect.disabled = true;
-            playerSeasonSelect.classList.add('opacity-50');
-        } else {
-            currentTvSeasons.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.season_number;
-                opt.textContent = `S${s.season_number}`;
-                opt.style.background = '#18181b';
-                opt.style.color = '#fff';
-                if (s.season_number === Number(currentS)) opt.selected = true;
-                playerSeasonSelect.appendChild(opt);
-            });
-            playerSeasonSelect.disabled = false;
-            playerSeasonSelect.classList.remove('opacity-50');
-        }
+        });
+        playerSeasonSelect.disabled = false;
+        playerSeasonSelect.classList.remove('opacity-50');
 
         const updateEpisodes = (sNum, keepE = false) => {
             playerEpisodeSelect.innerHTML = '';
-            if (currentPlayingItem && currentPlayingItem.isAnime) {
-                // Use anime map for absolute numbering
-                const total = currentAnimeMap.length || 12;
-                const maxEps = total > 1500 ? 1500 : total;
-                const selectedEpisode = getAnimeEpisodeInfo(currentS || 1, currentE || 1).absoluteEpisode;
-                for(let i = 1; i <= maxEps; i++) {
-                    const opt = document.createElement('option');
-                    opt.value = i;
-                    opt.textContent = `Ep ${i}`;
-                    opt.style.background = '#18181b';
-                    opt.style.color = '#fff';
-                    if (keepE && i === Number(selectedEpisode)) opt.selected = true;
-                    playerEpisodeSelect.appendChild(opt);
-                }
-            } else {
-                const selSeason = currentTvSeasons.find(s => s.season_number === Number(sNum));
-                if (!selSeason) return;
-                const epCount = selSeason.episode_count || 12;
-                for(let i=1; i<=epCount; i++) {
-                    const opt = document.createElement('option');
-                    opt.value = i;
-                    opt.textContent = `Ep ${i}`;
-                    opt.style.background = '#18181b';
-                    opt.style.color = '#fff';
-                    if (keepE && i === Number(currentE)) opt.selected = true;
-                    playerEpisodeSelect.appendChild(opt);
-                }
+            const selSeason = currentTvSeasons.find(s => s.season_number === Number(sNum));
+            if (!selSeason) return;
+            const epCount = selSeason.episode_count || 12;
+            for(let i=1; i<=epCount; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `Ep ${i}`;
+                opt.style.background = '#18181b';
+                opt.style.color = '#fff';
+                if (keepE && i === Number(currentE)) opt.selected = true;
+                playerEpisodeSelect.appendChild(opt);
             }
         };
 
         updateEpisodes(currentS || 1, true);
 
         playerSeasonSelect.onchange = (e) => {
+            updateEpisodes(Number(e.target.value), false);
             playMedia(currentPlayingItem, Number(e.target.value), 1);
         };
 
         playerEpisodeSelect.onchange = (e) => {
-            if (currentPlayingItem && currentPlayingItem.isAnime) {
-                // Translate absolute ep → TMDB season/episode
-                const absIdx = Number(e.target.value) - 1;
-                const mapped = currentAnimeMap[absIdx];
-                playMedia(currentPlayingItem, mapped ? mapped.season : 1, mapped ? mapped.episode : Number(e.target.value));
-            } else {
-                playMedia(currentPlayingItem, Number(playerSeasonSelect.value), Number(e.target.value));
-            }
+            playMedia(currentPlayingItem, Number(playerSeasonSelect.value), Number(e.target.value));
         };
     }
 
     async function playMedia(item, season = null, episode = null) {
         if (!item) return;
+        if (!item.isMovie) {
+            await ensureSeasonData(item);
+        }
         const isDifferentAnime = item.isAnime && (!currentPlayingItem || currentPlayingItem.tmdb_id !== item.tmdb_id);
         if (isDifferentAnime) {
             currentAnimeSourceIdx = 0;
