@@ -1,4 +1,4 @@
-let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
+let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '547c2cf5311a8f4499454a9fddb0fb8d';
 (() => {
     // Initialization Guard
     let isInitialized = false;
@@ -956,7 +956,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             setTimeout(loadDeferredData, 800);
         } catch (error) {
             console.error('Critical load failure:', error);
-            libraryData.movies = libraryData.movies.length ? libraryData.movies : [{ id: 101, title: "Offline Library", overview: "Check your connection and TMDB key.", year: "NA", rating: "NA", isMovie: true }];
+            libraryData.movies = libraryData.movies.length ? libraryData.movies : [{ id: 101, title: "Database Connection Error", overview: "We're having trouble syncing with the global cinematic database. Please check your internet connection or verify your TMDB API key in settings.", year: "ERR", rating: "0.0", isMovie: true }];
+            if (heroTitle) heroTitle.textContent = "DATABASE OFFLINE";
+            if (heroDesc) heroDesc.textContent = "We couldn't reach the streaming servers. Please ensure your TMDB API key is valid.";
             updateTabState(currentTab);
             if (heroSetup) heroSetup.classList.remove('hidden');
         } finally {
@@ -1218,9 +1220,12 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         };
 
         Object.entries(tabs).forEach(([key, btn]) => {
-            if (btn) {
-                // btn.classList.toggle('font-bold', tab === key);
-                // btn.classList.toggle('text-white', tab === key);
+            if (btn && btn.classList) {
+                btn.classList.toggle('text-white', tab === key);
+                btn.classList.toggle('font-bold', tab === key);
+                btn.classList.toggle('border-b-2', tab === key);
+                btn.classList.toggle('border-netflix-red', tab === key);
+                btn.classList.toggle('text-zinc-400', tab !== key);
             }
         });
 
@@ -1305,16 +1310,36 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     function updateHeroUI(item) {
         const heroContent = document.getElementById('hero-content-wrap');
-        heroBg.style.opacity = '0.5';
-        if (heroContent) heroContent.style.opacity = '0';
+        if (!heroContent) return;
+
+        heroContent.classList.remove('animate-slide-up');
+        heroContent.style.opacity = '0';
+        heroContent.style.transform = 'translateY(20px)';
+        heroBg.style.opacity = '0.3';
 
         setTimeout(() => {
             heroBg.src = item.backdrop;
             heroTitle.textContent = item.title;
-            heroDesc.textContent = item.overview;
+
+            // Premium Metadata Row
+            const year = item.year || '2024';
+            const rating = item.rating || '8.5';
+            const quality = parseFloat(rating) > 7 ? '4K Ultra HD' : 'HD';
+
+            heroDesc.innerHTML = `
+                <div class="flex items-center gap-4 mb-4 text-sm font-bold text-zinc-300">
+                    <span class="text-netflix-red">${rating} Rating</span>
+                    <span>${year}</span>
+                    <span class="border border-zinc-500 px-2 py-0.5 rounded text-[10px] uppercase tracking-widest">${quality}</span>
+                </div>
+                ${item.overview}
+            `;
+
             heroBg.style.opacity = '1';
-            if (heroContent) heroContent.style.opacity = '1';
-        }, 300);
+            heroContent.style.opacity = '1';
+            heroContent.style.transform = 'translateY(0)';
+            heroContent.classList.add('animate-slide-up');
+        }, 600);
 
         heroPlay.onclick = () => playMedia(item);
         heroInfo.onclick = () => openModal(item);
@@ -1326,26 +1351,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (featuredPool.length === 0) return;
             currentHeroIndex = (currentHeroIndex + 1) % featuredPool.length;
             const nextItem = featuredPool[currentHeroIndex];
-            const heroContent = document.getElementById('hero-content-wrap');
-
-            // Seamless Fade Logic
-            if (heroBg) {
-                heroBg.style.opacity = '0';
-                if (heroContent) heroContent.style.opacity = '0';
-
-                setTimeout(() => {
-                    heroBg.src = nextItem.backdrop;
-                    heroBg.style.opacity = '1';
-                    if (heroContent) heroContent.style.opacity = '1';
-
-                    heroTitle.textContent = nextItem.title;
-                    heroDesc.textContent = nextItem.overview;
-                    heroPlay.onclick = () => playMedia(nextItem);
-                    heroInfo.onclick = () => openModal(nextItem);
-                }, 1500);
-            }
+            updateHeroUI(nextItem);
         };
-        heroInterval = setInterval(rotate, 8000);
+        heroInterval = setInterval(rotate, 10000);
     }
 
     // --- MODAL ---
@@ -1448,7 +1456,10 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         // --- My List Toggle Logic ---
         const addListBtn = document.getElementById('modal-add-list');
         if (addListBtn) {
-            const isInList = libraryData.myList.some(i => i.tmdb_id === item.tmdb_id);
+            const getItemId = (i) => i.tmdb_id || i.malId || i.id;
+            const targetId = getItemId(item);
+            const isInList = libraryData.myList.some(i => getItemId(i) === targetId);
+
             addListBtn.innerHTML = `<span class="material-symbols-outlined">${isInList ? 'check' : 'add'}</span>`;
             addListBtn.classList.toggle('bg-white', isInList);
             addListBtn.classList.toggle('text-black', isInList);
@@ -1456,7 +1467,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             addListBtn.classList.toggle('text-white', !isInList);
 
             addListBtn.onclick = () => {
-                const index = libraryData.myList.findIndex(i => i.tmdb_id === item.tmdb_id);
+                const index = libraryData.myList.findIndex(i => getItemId(i) === targetId);
                 if (index === -1) {
                     libraryData.myList.unshift(item);
                 } else {
@@ -1464,7 +1475,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 }
                 localStorage.setItem('adamstream_mylist', JSON.stringify(libraryData.myList));
 
-                const nowInList = libraryData.myList.some(i => i.tmdb_id === item.tmdb_id);
+                const nowInList = libraryData.myList.some(i => getItemId(i) === targetId);
                 addListBtn.innerHTML = `<span class="material-symbols-outlined">${nowInList ? 'check' : 'add'}</span>`;
                 addListBtn.classList.toggle('bg-white', nowInList);
                 addListBtn.classList.toggle('text-black', nowInList);
@@ -1715,20 +1726,22 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     function createMovieCard(item, isTop10 = false) {
         const card = document.createElement('button');
         card.type = 'button';
-        card.className = 'movie-card flex-shrink-0 w-32 md:w-48 aspect-[2/3] relative rounded-md overflow-hidden cursor-pointer transition-all duration-500 hover:z-30 group shadow-xl shadow-black shadow-glow text-left focus:outline-none focus:ring-2 focus:ring-netflix-red';
+        card.className = 'movie-card flex-shrink-0 w-32 md:w-48 aspect-[2/3] relative rounded-md overflow-hidden cursor-pointer transition-all duration-500 hover:z-30 group shadow-2xl shadow-black text-left focus:outline-none focus:ring-2 focus:ring-netflix-red';
+
+        const isHighRated = parseFloat(item.rating) >= 7.5;
+        const badge = isTop10 ? 'Spotlight' : (isHighRated ? '4K Ultra HD' : '');
 
         card.innerHTML = `
-            <img src="${item.poster}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="${item.title}" loading="lazy">
-            ${isTop10 ? `<div class="absolute top-2 left-2 bg-netflix-red text-white text-[8px] font-black py-1 px-2 uppercase tracking-[0.16em] shadow-lg z-10 rounded">Spotlight</div>` : ''}
-            <div class="absolute inset-x-0 bottom-0 bg-[#1d1b17]/95 border-t border-white/10 backdrop-blur-md p-3">
-                <div class="flex gap-2 mb-2">
-                   <span class="bg-netflix-red text-white w-8 h-8 rounded-md flex items-center justify-center shadow-2xl transition-transform group-hover:scale-105"><span class="material-symbols-outlined fill text-sm">play_arrow</span></span>
-                   <span class="bg-white/10 text-white w-8 h-8 rounded-md flex items-center justify-center border border-white/15 hover:bg-white/15 shadow-2xl"><span class="material-symbols-outlined text-sm">add</span></span>
-                </div>
-                <h4 class="text-xs font-black truncate drop-shadow-2xl mb-1">${item.title}</h4>
-                <div class="flex items-center gap-1 text-[9px] text-zinc-300 font-black tracking-tight">
-                    <span class="text-[#6ee7b7] font-bold">${item.rating}</span>
-                    <span class="border border-white/30 px-1 rounded-sm">${item.isMovie ? 'Film' : 'Series'}</span>
+            <img src="${item.poster}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 group-hover:blur-[2px]" alt="${item.title}" loading="lazy">
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                <span class="material-symbols-outlined text-5xl text-white scale-50 group-hover:scale-100 transition-transform duration-500">play_circle</span>
+            </div>
+            ${badge ? `<div class="absolute top-2 left-2 ${isTop10 ? 'bg-netflix-red' : 'bg-black/60 backdrop-blur-md'} text-white text-[7px] font-black py-1 px-2 uppercase tracking-[0.16em] shadow-lg z-10 rounded border border-white/10">${badge}</div>` : ''}
+            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/90 to-transparent p-4 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
+                <h4 class="text-xs font-black truncate drop-shadow-2xl mb-1 text-white">${item.title}</h4>
+                <div class="flex items-center gap-2 text-[8px] text-zinc-400 font-black tracking-tight">
+                    <span class="text-netflix-red font-bold">${item.rating}</span>
+                    <span class="border border-white/20 px-1.5 py-0.5 rounded-sm uppercase">${item.isMovie ? 'Movie' : 'Series'}</span>
                     <span>${item.year}</span>
                 </div>
             </div>
@@ -2083,6 +2096,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (document.getElementById('movies-nav-btn')) document.getElementById('movies-nav-btn').onclick = goMovies;
         if (document.getElementById('popular-nav-btn')) document.getElementById('popular-nav-btn').onclick = goPopular;
         if (document.getElementById('mylist-nav-btn')) document.getElementById('mylist-nav-btn').onclick = goMyList;
+    if (document.getElementById('settings-nav-btn')) {
+        document.getElementById('settings-nav-btn').onclick = () => showApiKeyModal(false);
+    }
 
         if (heroSetup) heroSetup.onclick = () => {
             heroSetup.classList.add('hidden');

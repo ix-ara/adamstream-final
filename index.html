@@ -52,6 +52,23 @@
             overflow-x: hidden;
             scrollbar-width: thin;
             scrollbar-color: #4f4a3f transparent;
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(circle at 30% 30%, rgba(255, 118, 87, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 70% 70%, rgba(110, 231, 183, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 50% 50%, rgba(255, 118, 87, 0.03) 0%, transparent 50%);
+            z-index: -1;
+            pointer-events: none;
+            animation: mesh-rotate 60s linear infinite;
+            filter: blur(40px);
         }
 
         ::-webkit-scrollbar {
@@ -73,8 +90,9 @@
 
         .hero-gradient {
             background:
-                linear-gradient(88deg, rgba(18, 17, 15, 0.94) 0%, rgba(18, 17, 15, 0.62) 48%, rgba(18, 17, 15, 0.18) 100%),
-                linear-gradient(to top, rgba(18, 17, 15, 1) 0%, rgba(18, 17, 15, 0) 34%);
+                linear-gradient(90deg, #12110f 0%, rgba(18, 17, 15, 0.8) 25%, rgba(18, 17, 15, 0) 50%),
+                linear-gradient(0deg, #12110f 0%, rgba(18, 17, 15, 0) 50%),
+                linear-gradient(180deg, rgba(18, 17, 15, 0.5) 0%, rgba(18, 17, 15, 0) 20%);
         }
 
         .no-scrollbar::-webkit-scrollbar {
@@ -224,17 +242,27 @@
         }
 
         @keyframes mesh-rotate {
-            0% {
-                transform: rotate(0deg) scale(1);
-            }
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
 
-            50% {
-                transform: rotate(180deg) scale(1.1);
-            }
+        @keyframes slideUp {
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
 
-            100% {
-                transform: rotate(360deg) scale(1);
-            }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
         }
 
         /* Global App Loader */
@@ -375,9 +403,10 @@
         }
 
         #main-nav {
-            background: rgba(18, 17, 15, 0.7);
-            border-bottom: 1px solid rgba(244, 239, 229, 0.08);
-            backdrop-filter: blur(18px);
+            background: rgba(10, 10, 10, 0.4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(24px) saturate(180%);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
 
         #nav-logo {
@@ -520,6 +549,9 @@
             <button id="movies-nav-btn" class="hover:text-white transition-colors shrink-0">Movies</button>
             <button id="popular-nav-btn" class="hover:text-white transition-colors shrink-0">New & Popular</button>
             <button id="mylist-nav-btn" class="hover:text-white transition-colors shrink-0">My List</button>
+            <button id="settings-nav-btn" class="hover:text-white transition-colors shrink-0 flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">settings</span>
+            </button>
         </div>
 
         <!-- Account -->
