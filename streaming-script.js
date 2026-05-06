@@ -1388,9 +1388,13 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         playerTitle.textContent = `${item.title} - Loading...`;
 
         currentPlayingItem = item;
-        setPlayerControlsMode('preview');
 
-        if (!item.isMovie) {
+        if (item.isAnime) {
+            setPlayerControlsMode('anime');
+            animeDubMode = false;
+            currentAnimeSourceIdx = 0;
+            updateAnimeToggleButtons();
+
             const seasons = await ensureSeasonData(item);
             if (playbackToken !== currentPlaybackToken) return;
 
@@ -1399,43 +1403,63 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             const selectedEpisode = Number(episode) || 1;
             populatePlayerSelectors(selectedSeason, selectedEpisode);
 
-            if (item.isAnime) {
-                setPlayerControlsMode('anime');
-                animeDubMode = false;
-                currentAnimeSourceIdx = 0;
-                updateAnimeToggleButtons();
-
-                let animeUrl = null;
-                try {
-                    animeUrl = await getAnimeSourceUrl(item, selectedSeason, selectedEpisode);
-                } catch (error) {
-                    console.warn('Anime source failed:', error);
-                }
-                if (playbackToken !== currentPlaybackToken) return;
-
-                if (animeUrl) {
-                    setPlayerFrameUrl(animeUrl, playbackToken);
-                    playerTitle.textContent = `${item.title} - S${selectedSeason} E${selectedEpisode} - Sub`;
-                    schedulePlayerHelp(item, playbackToken);
-                } else {
-                    const fallbackUrl = buildPreviewFallbackFrame(item);
-                    setPlayerFrameUrl(fallbackUrl, playbackToken, 1800);
-                    playerTitle.textContent = `${item.title} - Anime source unavailable`;
-                    showToast('Anime source unavailable for this episode.', false);
-                }
-
-                setTimeout(() => {
-                    if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
-                }, 5000);
-                return;
+            let animeUrl = null;
+            try {
+                animeUrl = await getAnimeSourceUrl(item, selectedSeason, selectedEpisode);
+            } catch (error) {
+                console.warn('Anime source failed:', error);
             }
+            if (playbackToken !== currentPlaybackToken) return;
+
+            if (animeUrl) {
+                setPlayerFrameUrl(animeUrl, playbackToken);
+                playerTitle.textContent = `${item.title} - S${selectedSeason} E${selectedEpisode} - Sub`;
+                schedulePlayerHelp(item, playbackToken);
+            } else {
+                const fallbackUrl = buildPreviewFallbackFrame(item);
+                setPlayerFrameUrl(fallbackUrl, playbackToken, 1800);
+                playerTitle.textContent = `${item.title} - Anime source unavailable`;
+                showToast('Anime source unavailable for this episode.', false);
+            }
+
+            setTimeout(() => {
+                if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
+            }, 5000);
+            return;
         }
 
-        const trailerUrl = await fetchTrailerUrl(item);
-        if (playbackToken !== currentPlaybackToken) return;
+        setPlayerControlsMode('stream');
+        if (item.isMovie) {
+            if (playerSeasonSelect) playerSeasonSelect.classList.add('hidden');
+            if (playerEpisodeControls) playerEpisodeControls.classList.add('hidden');
+        } else {
+            const seasons = await ensureSeasonData(item);
+            if (playbackToken !== currentPlaybackToken) return;
 
-        setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
-        playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
+            const firstSeason = seasons[0]?.season_number || 1;
+            const selectedSeason = Number(season) || firstSeason;
+            const selectedEpisode = Number(episode) || 1;
+            populatePlayerSelectors(selectedSeason, selectedEpisode);
+            season = selectedSeason;
+            episode = selectedEpisode;
+        }
+
+        const streamUrl = item.tmdb_id ? getServerUrl(item, season, episode) : null;
+        if (streamUrl) {
+            setPlayerFrameUrl(streamUrl, playbackToken);
+            if (item.isMovie) {
+                playerTitle.textContent = `${item.title} - Playing`;
+            } else {
+                playerTitle.textContent = `${item.title} - S${season} E${episode}`;
+            }
+            schedulePlayerHelp(item, playbackToken);
+        } else {
+            const trailerUrl = await fetchTrailerUrl(item);
+            if (playbackToken !== currentPlaybackToken) return;
+
+            setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
+            playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
+        }
 
         setTimeout(() => {
             if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
@@ -1853,6 +1877,14 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 // Restart player with subtitle if enabled
                 const position = getCurrentPlaybackPosition();
                 playMedia(currentPlayingItem, position.season, position.episode);
+            };
+        }
+
+        if (playerTrailerBtn) {
+            playerTrailerBtn.onclick = () => {
+                if (currentPlayingItem) {
+                    playTrailerFallback(currentPlayingItem);
+                }
             };
         }
 
