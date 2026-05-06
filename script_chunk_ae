@@ -1,0 +1,300 @@
+Warming Romance": libraryData.romanceMovies,
+                "Blockbuster Comedies": libraryData.comedy,
+                "Sci-Fi & Fantasy": libraryData.scifi,
+                "Trending Movies of the Week": libraryData.popular
+            };
+        } else if (currentTab === 'popular') {
+            categories = {
+                "New & Trending": libraryData.popular,
+                "Hot on AdamStream": libraryData.binge,
+                "Top Action Flicks": libraryData.actionMovies
+            };
+        } else if (currentTab === 'mylist') {
+            categories = {
+                "Your Personal Collection": libraryData.myList
+            };
+            if (libraryData.myList.length === 0) {
+                contentRows.innerHTML = '<div class="px-12 py-32 text-zinc-600 text-center text-2xl font-black italic tracking-widest uppercase">Your list is a blank canvas. Start adding titles!</div>';
+                return;
+            }
+        } else if (currentTab === 'kdrama') {
+            categories = {
+                "Trending Korean Dramas": libraryData.kdrama,
+                "Action-Packed K-Dramas": libraryData.actionKDrama,
+                "Dark K-Drama Thrillers": libraryData.horrorKDrama,
+                "Romantic Korean Classics": libraryData.romanceKDrama,
+                "Must-Watch K-Dramas": libraryData.kdrama.slice().sort(() => Math.random() - 0.5)
+            };
+        } else {
+            // Home
+            if (libraryData.myList.length > 0) {
+                categories["Continue Watching / My List"] = libraryData.myList;
+            }
+            categories = {
+                ...categories,
+                "Trending Movies": libraryData.movies,
+                "New Action Hits": libraryData.actionMovies,
+                "Horror Night Features": libraryData.horrorMovies,
+                "Romance for You": libraryData.romanceMovies,
+                "Binge-Worthy TV Series": libraryData.binge,
+                "Anime Hits": libraryData.anime,
+                "Korean Drama Trends": libraryData.kdrama
+            };
+        }
+
+        Object.entries(categories).forEach(([name, items]) => {
+            if (items.length > 0) {
+                const row = createRow(name, items, name.includes("Trending") || name.includes("Popular"));
+                if (row) contentRows.appendChild(row);
+            }
+        });
+    }
+
+    function renderGrid(title, items) {
+        if (!contentRows) return;
+        heroSection.style.display = 'none';
+        contentRows.classList.remove('-mt-20');
+        contentRows.classList.add('mt-24');
+
+        contentRows.innerHTML = `
+            <div class="px-4 md:px-12 mb-8 flex items-center justify-between animate-fade-in">
+                <h2 class="text-xl md:text-3xl font-black uppercase tracking-tighter drop-shadow-2xl">${title}</h2>
+                <button id="back-to-browse" class="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold group bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-700 hover:border-zinc-500">
+                    <span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform">arrow_back</span>
+                    <span class="hidden md:inline uppercase text-[10px] tracking-widest">Back to Browse</span>
+                </button>
+            </div>
+            <div id="grid-container" class="px-4 md:px-12 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-5 pb-32 animate-slide-up">
+            </div>
+        `;
+
+        const grid = document.getElementById('grid-container');
+        items.forEach((item, idx) => {
+            const card = createMovieCard(item, false);
+            card.classList.remove('w-32', 'md:w-48', 'flex-shrink-0');
+            card.classList.add('w-full');
+            card.style.animationDelay = `${idx * 15}ms`;
+            grid.appendChild(card);
+        });
+
+        // Massive Background Expansion
+        const categoryMap = {
+            "Trending Movies": "/trending/movie/week",
+            "Trending Anime": "/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc",
+            "Action Anime Highlights": "/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc",
+            "Chilling Horror Anime": "/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc",
+            "Sweet Romance Anime": "/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc",
+            "Top Rated Anime Classics": "/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000",
+            "Korean Drama Craze": "/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc",
+            "Trending Korean Dramas": "/discover/tv?with_origin_country=KR&without_genres=16&sort_by=popularity.desc",
+            "Action-Packed K-Dramas": "/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc",
+            "Dark K-Drama Thrillers": "/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc",
+            "Romantic Korean Classics": "/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc",
+            "Binge-Worthy Series": "/trending/tv/week",
+            "Binge-Worthy TV Series": "/trending/tv/week",
+            "Popular Movies": "/movie/popular",
+            "Trending Movies of the Week": "/movie/popular",
+            "Adrenaline-Pumping Action": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "New Action Hits": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "Top Action Flicks": "/discover/movie?with_genres=28&sort_by=popularity.desc",
+            "Blockbuster Comedies": "/discover/movie?with_genres=35&sort_by=popularity.desc",
+            "Sci-Fi & Fantasy": "/discover/movie?with_genres=878&sort_by=popularity.desc",
+            "Sci-Fi Masterpieces": "/discover/movie?with_genres=878&sort_by=popularity.desc",
+            "Nightmare-Inducing Horror": "/discover/movie?with_genres=27&sort_by=popularity.desc",
+            "Horror Night Features": "/discover/movie?with_genres=27&sort_by=popularity.desc",
+            "Heart-Warming Romance": "/discover/movie?with_genres=10749&sort_by=popularity.desc",
+            "Romance for You": "/discover/movie?with_genres=10749&sort_by=popularity.desc",
+            "Crime TV Thrillers": "/discover/tv?with_genres=80&sort_by=popularity.desc",
+            "Crime TV Shows": "/discover/tv?with_genres=80&sort_by=popularity.desc",
+            "Explosive Action TV": "/discover/tv?with_genres=10759&sort_by=popularity.desc",
+            "Spine-Tingling Mystery & Horror": "/discover/tv?with_genres=9648&sort_by=popularity.desc",
+            "Romantic TV Dramas": "/discover/tv?with_genres=10766&sort_by=popularity.desc"
+        };
+
+        const baseEndpoint = categoryMap[title];
+        if (baseEndpoint) {
+            let page = 3;
+            const loadMoreBtn = document.createElement('button');
+            loadMoreBtn.className = 'col-span-full py-5 bg-zinc-900 border border-zinc-800 text-white font-bold rounded-md hover:bg-netflix-red transition-all text-sm uppercase tracking-widest mt-8 shadow-2xl';
+            loadMoreBtn.textContent = 'Load More Titles';
+            grid.appendChild(loadMoreBtn);
+
+            loadMoreBtn.onclick = async () => {
+                loadMoreBtn.innerHTML = 'Connecting to Global Database...';
+                loadMoreBtn.classList.add('opacity-50', 'pointer-events-none');
+
+                const requests = [
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page}`),
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page + 1}`),
+                    fetchTMDB(`${baseEndpoint}${baseEndpoint.includes('?') ? '&' : '?'}page=${page + 2}`)
+                ];
+                page += 3;
+
+                const responses = await Promise.all(requests);
+                loadMoreBtn.classList.remove('opacity-50', 'pointer-events-none');
+                loadMoreBtn.innerHTML = 'Load More Titles';
+
+                responses.forEach(res => {
+                    if (res && res.results) {
+                        const forceType = title.toLowerCase().includes('anime') ? 'anime' : (baseEndpoint.includes('movie') ? 'movie' : 'tv');
+                        const newItems = res.results.map(i => formatItem(i, forceType));
+                        newItems.forEach((item, idx) => {
+                            const card = createMovieCard(item, false);
+                            card.classList.remove('w-32', 'md:w-48', 'flex-shrink-0');
+                            card.classList.add('w-full', 'animate-pop-in');
+                            card.style.animationDelay = `${idx * 15}ms`;
+                            grid.insertBefore(card, loadMoreBtn);
+                        });
+                    }
+                });
+            };
+
+        }
+
+        document.getElementById('back-to-browse').onclick = () => {
+            updateTabState(currentTab); // Returns to the current row-based view
+        };
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function handleSearch(query) {
+        if (!contentRows) return;
+        if (query.trim().length === 0) {
+            renderLibrary();
+            return;
+        }
+
+        const data = await fetchSearch(query);
+        let items = (data?.results || [])
+            .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+            .map(r => formatItem(r, r.media_type));
+
+        if (currentTab === 'anime' || items.length === 0) {
+            const animeMatches = await fetchJikanAnimeList('/anime', { q: query, order_by: 'popularity', sort: 'asc' });
+            items = currentTab === 'anime' ? mergeAnimeLists(animeMatches, items.filter(item => item.isAnime)) : mergeAnimeLists(items, animeMatches);
+        }
+
+        if (items.length === 0) {
+            contentRows.innerHTML = '<div class="px-12 py-32 text-zinc-600 text-center text-2xl font-black italic tracking-widest uppercase">No cinematic matches for "' + query + '"</div>';
+            return;
+        }
+
+        contentRows.innerHTML = '';
+        const row = createRow(`Search Results for "${query}"`, items, false);
+        if (row) contentRows.appendChild(row);
+    }
+
+    function init() {
+        if (isInitialized) return;
+        isInitialized = true;
+        initAuth();
+
+        // Safety Timeout: Force hide the loader or show delay message if hung
+        setTimeout(() => {
+            if (appLoader) {
+                appLoader.classList.add('hidden');
+            }
+            // If we're still on the logo, show some feedback unconditionally after timeout
+            if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
+                heroTitle.textContent = 'LIBRARY CONNECTION DELAY';
+                heroDesc.textContent = 'We are having trouble connecting to the title database. Try loading the catalog again.';
+                if (heroSetup) heroSetup.classList.remove('hidden');
+            }
+        }, 8000);
+
+        if (playerSubBtn) {
+            playerSubBtn.onclick = () => {
+                if (currentPlayingItem && currentPlayingItem.isAnime) return;
+                currentKurdishSub = !currentKurdishSub;
+                playerSubBtn.classList.toggle('active', currentKurdishSub);
+                // Restart player with subtitle if enabled
+                const position = getCurrentPlaybackPosition();
+                playMedia(currentPlayingItem, position.season, position.episode);
+            };
+        }
+
+        if (playerTrailerBtn) {
+            playerTrailerBtn.onclick = () => {
+                if (currentPlayingItem) {
+                    playTrailerFallback(currentPlayingItem);
+                }
+            };
+        }
+
+        if (homeBtn) homeBtn.onclick = goHome;
+        if (animeNavBtn) animeNavBtn.onclick = goAnime;
+        if (document.getElementById('kdrama-nav-btn')) document.getElementById('kdrama-nav-btn').onclick = goKDrama;
+        if (document.getElementById('tv-nav-btn')) document.getElementById('tv-nav-btn').onclick = goTV;
+        if (document.getElementById('movies-nav-btn')) document.getElementById('movies-nav-btn').onclick = goMovies;
+        if (document.getElementById('popular-nav-btn')) document.getElementById('popular-nav-btn').onclick = goPopular;
+        if (document.getElementById('mylist-nav-btn')) document.getElementById('mylist-nav-btn').onclick = goMyList;
+
+        if (heroSetup) heroSetup.onclick = () => {
+            heroSetup.classList.add('hidden');
+            if (heroTitle) heroTitle.textContent = 'LOADING CONTENT';
+            if (heroDesc) heroDesc.textContent = 'Preparing your library. Please wait while we sync fresh picks from the global database...';
+            loadData();
+        };
+        if (document.getElementById('nav-logo')) document.getElementById('nav-logo').onclick = goHome;
+        if (closeModalBtn) closeModalBtn.onclick = closeModal;
+        if (exitPlayerBtn) exitPlayerBtn.onclick = exitPlayer;
+
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const value = e.target.value;
+                clearTimeout(searchDebounce);
+
+                if (value.length > 0) {
+                    heroSection.style.display = 'none';
+                    contentRows.classList.remove('-mt-20');
+                    contentRows.classList.add('mt-24');
+                    searchDebounce = setTimeout(() => handleSearch(value), 500);
+                } else {
+                    heroSection.style.display = 'flex';
+                    contentRows.classList.add('-mt-20');
+                    contentRows.classList.remove('mt-24');
+                    renderLibrary();
+                }
+            });
+        }
+
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                mainNav.classList.add('bg-netflix-black', 'shadow-2xl', 'py-2');
+                mainNav.classList.remove('bg-transparent', 'py-4');
+            } else {
+                mainNav.classList.remove('bg-netflix-black', 'shadow-2xl', 'py-2');
+                mainNav.classList.add('bg-transparent', 'py-4');
+            }
+        });
+
+        detailModal.addEventListener('click', (e) => {
+            if (e.target === detailModal || e.target.classList.contains('modal-blur')) closeModal();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                exitPlayer();
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) clearInterval(heroInterval);
+            else startHeroRotation();
+        });
+
+        refreshServerButtons();
+        // Execute single data load
+        loadData();
+    }
+
+    // Kickoff
+    document.addEventListener('DOMContentLoaded', init);
+    // Fallback if already loaded
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        setTimeout(init, 100);
+    }
+
+})();
