@@ -27,9 +27,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const playerTitleOverlay = document.getElementById('player-title-overlay');
     const playerTitle = document.getElementById('player-title');
     const playerEpisodeSelector = document.getElementById('player-episode-selector');
+    const playerEpisodeControls = document.getElementById('player-episode-controls');
     const playerSeasonSelect = document.getElementById('player-season-select');
     const playerEpisodeSelect = document.getElementById('player-episode-select');
     const playerSubBtn = document.getElementById('player-sub-btn');
+    const playerTrailerBtn = document.getElementById('player-trailer-btn');
     const playerLoader = document.getElementById('player-loader');
     const playerServerControls = document.getElementById('player-server-controls');
     const playerDubToggle = document.getElementById('player-dub-toggle');
@@ -112,6 +114,9 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     let currentServer = 'alpha'; // Default to the broadest TMDB-backed source
     const SERVER_PRIORITY = ['alpha', 'delta', 'prime', 'legacy'];
     let fallbackServerIndex = 0;
+    let playerHelpTimer = null;
+    let currentPlaybackToken = 0;
+    const trailerCache = {};
     const GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
 
     // Profile states removed
@@ -529,6 +534,103 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         });
     }
 
+    function getItemPlaybackKey(item) {
+        if (!item) return '';
+        const type = item.isAnime ? 'anime' : (item.isMovie ? 'movie' : 'tv');
+        return `${type}:${item.tmdb_id || item.malId || item.id || item.title || ''}`;
+    }
+
+    function setPlayerControlsMode(mode) {
+        const visible = mode !== 'hidden';
+        if (playerEpisodeSelector) {
+            playerEpisodeSelector.classList.toggle('hidden', !visible);
+            playerEpisodeSelector.classList.toggle('flex', visible);
+        }
+        if (playerEpisodeControls) {
+            playerEpisodeControls.classList.toggle('hidden', !(mode === 'series' || mode === 'anime'));
+            playerEpisodeControls.classList.toggle('flex', mode === 'series' || mode === 'anime');
+        }
+        if (playerServerControls) {
+            playerServerControls.classList.toggle('hidden', mode === 'hidden' || mode === 'anime');
+            playerServerControls.classList.toggle('flex', mode === 'movie' || mode === 'series');
+        }
+        if (playerSubBtn) {
+            playerSubBtn.classList.toggle('hidden', mode === 'hidden' || mode === 'anime');
+            if (mode !== 'anime') playerSubBtn.textContent = 'subtitles';
+        }
+        if (playerTrailerBtn) playerTrailerBtn.classList.toggle('hidden', !visible);
+        if (playerDubToggle) {
+            playerDubToggle.classList.toggle('hidden', mode !== 'anime');
+            playerDubToggle.classList.toggle('flex', mode === 'anime');
+        }
+    }
+
+    function hidePlayerLoader() {
+        if (playerLoader) {
+            playerLoader.classList.add('opacity-0', 'pointer-events-none');
+        }
+    }
+
+    async function fetchTrailerUrl(item) {
+        if (!item) return null;
+        const key = getItemPlaybackKey(item);
+        if (trailerCache[key] !== undefined) return trailerCache[key];
+
+        if (item.trailerEmbedUrl) {
+            trailerCache[key] = item.trailerEmbedUrl;
+            return trailerCache[key];
+        }
+
+        if (!item.tmdb_id) {
+            trailerCache[key] = null;
+            return null;
+        }
+
+        const mediaType = item.isMovie ? 'movie' : 'tv';
+        const data = await fetchTMDB(`/${mediaType}/${item.tmdb_id}/videos`, 6000);
+        const videos = (data?.results || []).filter(video => video.site === 'YouTube' && video.key);
+        const trailer = videos.find(video => video.type === 'Trailer' && video.official) ||
+            videos.find(video => video.type === 'Trailer') ||
+            videos.find(video => video.type === 'Teaser') ||
+            videos[0];
+
+        trailerCache[key] = trailer ? `https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&rel=0` : null;
+        return trailerCache[key];
+    }
+
+    async function playTrailerFallback(item = currentPlayingItem) {
+        if (!item) return;
+        currentPlaybackToken += 1;
+        clearTimeout(playerHelpTimer);
+        if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+        const trailerUrl = await fetchTrailerUrl(item);
+        if (!trailerUrl) {
+            hidePlayerLoader();
+            showToast('No official trailer is available for this title.', false);
+            return;
+        }
+
+        const mode = item.isAnime ? 'anime' : (item.isMovie ? 'movie' : 'series');
+        setPlayerControlsMode(mode);
+        playerIframe.onerror = null;
+        playerIframe.onload = hidePlayerLoader;
+        playerIframe.src = trailerUrl;
+        playerTitle.textContent = `${item.title} - Official Trailer`;
+        videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        playerTitleOverlay.classList.remove('opacity-0');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function schedulePlayerHelp(item, token) {
+        clearTimeout(playerHelpTimer);
+        playerHelpTimer = setTimeout(() => {
+            if (token !== currentPlaybackToken || !videoOverlay || videoOverlay.classList.contains('pointer-events-none')) return;
+            hidePlayerLoader();
+            playerTitleOverlay.classList.remove('opacity-0');
+            showToast(item?.isAnime ? 'Still loading? Switch SUB source, try DUB, or play the trailer.' : 'If this source says File not found, switch source or play the trailer.', false);
+        }, 7000);
+    }
+
     // --- TMDB FETCHING ---
     async function fetchTMDB(endpoint, timeoutMs = 8000) {
         if (!TMDB_API_KEY) return null;
@@ -625,6 +727,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             year,
             animeEpisodes: episodes,
             animeType: item.type || 'TV',
+            trailerEmbedUrl: item.trailer?.embed_url ? `${item.trailer.embed_url}${item.trailer.embed_url.includes('autoplay=') ? '' : (item.trailer.embed_url.includes('?') ? '&autoplay=1' : '?autoplay=1')}` : null,
             genres: (item.genres || []).map(genre => genre.name).filter(Boolean)
         };
     }
@@ -750,7 +853,12 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             if (popularRes) libraryData.popular = popularRes.results.map(i => formatItem(i, 'movie'));
             if (bingeRes) libraryData.binge = bingeRes.results.map(i => formatItem(i, 'tv'));
 
-            await loadAnimeFallbackData(false);
+            loadAnimeFallbackData(false).then(() => {
+                const isBrowsingRows = !searchInput?.value.trim() && heroSection?.style.display !== 'none';
+                if (isBrowsingRows && (currentTab === 'home' || currentTab === 'anime')) {
+                    updateTabState(currentTab);
+                }
+            }).catch(error => console.warn('Anime fallback refresh failed:', error));
 
             if (!moviesRes && !tvRes && !animeRes && !kdramaRes && !popularRes && !bingeRes && libraryData.anime.length === 0) {
                 throw new Error('Essential TMDB requests all failed');
@@ -1339,15 +1447,24 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     async function playMedia(item, season = null, episode = null) {
         if (!item) return;
+        const playbackToken = ++currentPlaybackToken;
+        clearTimeout(playerHelpTimer);
+        if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+        videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.style.overflow = 'hidden';
+        playerTitleOverlay.classList.remove('opacity-0');
+        playerTitle.textContent = `${item.title} - Loading...`;
+
         if (!item.isMovie) {
             await ensureSeasonData(item);
         }
-        const isDifferentAnime = item.isAnime && (!currentPlayingItem || currentPlayingItem.tmdb_id !== item.tmdb_id);
+        const isDifferentAnime = item.isAnime && (!currentPlayingItem || getItemPlaybackKey(currentPlayingItem) !== getItemPlaybackKey(item));
         if (isDifferentAnime) {
             currentAnimeSourceIdx = 0;
             animeSourceFailCount = 0;
         }
         currentPlayingItem = item;
+        if (playerTrailerBtn) playerTrailerBtn.onclick = () => playTrailerFallback(item);
 
         const s = season || 1;
         const e = episode || 1;
@@ -1358,24 +1475,14 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if (item.isMovie) {
             url = getServerUrl(item, s, e, currentServer);
             subtitle = '';
-            if (playerEpisodeSelector) {
-                playerEpisodeSelector.classList.add('hidden');
-                playerEpisodeSelector.classList.remove('flex');
-            }
-            if (playerDubToggle) {
-                playerDubToggle.classList.add('hidden');
-                playerDubToggle.classList.remove('flex');
-            }
-            if (playerSubBtn) playerSubBtn.classList.remove('hidden');
-            if (playerServerControls) playerServerControls.classList.remove('hidden');
+            setPlayerControlsMode('movie');
         } else {
             if (item.isAnime) {
                 url = await getAnimeSourceUrl(item, s, e);
                 if (!url) {
                     playerTitle.textContent = `${item.title} - Playback unavailable`;
-                    if (playerLoader) {
-                        playerLoader.classList.add('opacity-0', 'pointer-events-none');
-                    }
+                    setPlayerControlsMode('anime');
+                    hidePlayerLoader();
                     return;
                 }
             } else {
@@ -1397,19 +1504,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 populatePlayerSelectors(s, e);
             }
 
-            if (playerDubToggle) {
-                if (item.isAnime) {
-                    playerDubToggle.classList.remove('hidden');
-                    playerDubToggle.classList.add('flex');
-                    if (playerSubBtn) playerSubBtn.classList.add('hidden');
-                    if (playerServerControls) playerServerControls.classList.add('hidden');
-                } else {
-                    playerDubToggle.classList.add('hidden');
-                    playerDubToggle.classList.remove('flex');
-                    if (playerSubBtn) playerSubBtn.classList.remove('hidden');
-                    if (playerServerControls) playerServerControls.classList.remove('hidden');
-                }
-            }
+            setPlayerControlsMode(item.isAnime ? 'anime' : 'series');
         }
 
         playerIframe.onerror = async () => {
@@ -1430,9 +1525,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
                 }
 
                 playerTitle.textContent = `${currentPlayingItem.title} - Playback unavailable`;
-                if (playerLoader) {
-                    playerLoader.classList.add('opacity-0', 'pointer-events-none');
-                }
+                hidePlayerLoader();
                 return;
             }
 
@@ -1447,34 +1540,33 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         };
 
         playerIframe.onload = () => {
-            if (playerLoader) {
-                playerLoader.classList.add('opacity-0');
-                playerLoader.classList.add('pointer-events-none');
-            }
+            hidePlayerLoader();
         };
 
         playerIframe.src = url;
         playerTitle.textContent = item.title + subtitle;
 
-        videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
-        document.body.style.overflow = 'hidden';
-        playerTitleOverlay.classList.remove('opacity-0');
-
         if (playerLoader) {
             playerLoader.classList.remove('opacity-0', 'pointer-events-none');
             setTimeout(() => {
-                playerLoader.classList.add('opacity-0', 'pointer-events-none');
-            }, 800);
+                if (playbackToken === currentPlaybackToken) hidePlayerLoader();
+            }, 1800);
         }
 
+        schedulePlayerHelp(item, playbackToken);
+
         setTimeout(() => {
-            playerTitleOverlay.classList.add('opacity-0');
+            if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
         }, 5000);
     }
 
     function exitPlayer() {
+        currentPlaybackToken += 1;
+        clearTimeout(playerHelpTimer);
         playerIframe.src = '';
         videoOverlay.classList.add('opacity-0', 'pointer-events-none');
+        setPlayerControlsMode('hidden');
+        hidePlayerLoader();
         animeDubMode = false;
         if (dubHint) dubHint.classList.add('hidden');
         document.body.style.overflow = '';

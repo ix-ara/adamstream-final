@@ -675,17 +675,24 @@
                 </div>
             </div>
 
-            <span class="text-zinc-300 text-xs font-bold uppercase tracking-wider">EPISODES</span>
-            <select id="player-season-select"
-                class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
-            </select>
-            <span class="text-zinc-500 font-bold">/</span>
-            <select id="player-episode-select"
-                class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
-            </select>
+            <div id="player-episode-controls" class="flex items-center gap-3">
+                <span class="text-zinc-300 text-xs font-bold uppercase tracking-wider">EPISODES</span>
+                <select id="player-season-select"
+                    class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
+                </select>
+                <span class="text-zinc-500 font-bold">/</span>
+                <select id="player-episode-select"
+                    class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
+                </select>
+            </div>
             <button id="player-sub-btn"
                 class="text-zinc-300 hover:text-white transition-all ml-2 bg-white/5 border border-white/10 rounded-full px-3 py-2 shadow-sm"
                 title="Toggle Kurdish subtitles">subtitles</button>
+            <button id="player-trailer-btn"
+                class="hidden text-zinc-300 hover:text-white transition-all bg-white/5 border border-white/10 rounded-full px-3 py-2 shadow-sm"
+                title="Play official trailer">
+                <span class="material-symbols-outlined text-base leading-none">movie</span>
+            </button>
             <!-- Sub/Dub toggle - only visible for anime -->
             <div id="player-dub-toggle"
                 class="hidden items-center gap-2 ml-1 bg-white/5 rounded-full p-1 border border-white/10 shadow-2xl backdrop-blur-xl">
