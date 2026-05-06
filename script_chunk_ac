@@ -1,0 +1,421 @@
+p(i => formatItem(i, 'tv'));
+            if (animeRes) libraryData.anime = animeRes.results.map(i => formatItem(i, 'anime'));
+            if (kdramaRes) libraryData.kdrama = kdramaRes.results.map(i => formatItem(i, 'tv'));
+            if (popularRes) libraryData.popular = popularRes.results.map(i => formatItem(i, 'movie'));
+            if (bingeRes) libraryData.binge = bingeRes.results.map(i => formatItem(i, 'tv'));
+
+            loadAnimeFallbackData(false).then(() => {
+                const isBrowsingRows = !searchInput?.value.trim() && heroSection?.style.display !== 'none';
+                if (isBrowsingRows && (currentTab === 'home' || currentTab === 'anime')) {
+                    updateTabState(currentTab);
+                }
+            }).catch(error => console.warn('Anime fallback refresh failed:', error));
+
+            if (!moviesRes && !tvRes && !animeRes && !kdramaRes && !popularRes && !bingeRes && libraryData.anime.length === 0) {
+                throw new Error('Essential TMDB requests all failed');
+            }
+
+            if (libraryData.movies.length === 0) {
+                libraryData.movies = [
+                    { id: 101, tmdb_id: 823464, title: "Godzilla x Kong", year: "2024", rating: "7.2", overview: "The epic battle continues!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000" },
+                    { id: 102, tmdb_id: 1022789, title: "Inside Out 2", year: "2024", rating: "8.1", overview: "Emotions are back!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2000" }
+                ];
+            }
+            if (libraryData.tv.length === 0) {
+                libraryData.tv = [
+                    { id: 901, tmdb_id: 1396, title: "Breaking Bad", year: "2008", rating: "9.5", overview: "A chemistry teacher turned kingpin.", isMovie: false, isAnime: false, poster: "https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000" }
+                ];
+            }
+
+            updateTabState(currentTab);
+            setTimeout(loadDeferredData, 800);
+        } catch (error) {
+            console.error('Critical load failure:', error);
+            libraryData.movies = libraryData.movies.length ? libraryData.movies : [{ id: 101, title: "Offline Library", overview: "Check your connection and TMDB key.", year: "NA", rating: "NA", isMovie: true }];
+            updateTabState(currentTab);
+            if (heroSetup) heroSetup.classList.remove('hidden');
+        } finally {
+            if (appLoader) {
+                setTimeout(() => {
+                    appLoader.classList.add('hidden');
+                }, 500);
+            }
+        }
+    }
+
+    async function loadDeferredData() {
+        try {
+            const deferredEndpoints = {
+                action: fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'),
+                comedy: fetchTMDB('/discover/movie?with_genres=35&sort_by=popularity.desc'),
+                horror: fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'),
+                scifi: fetchTMDB('/discover/movie?with_genres=878&sort_by=popularity.desc'),
+                crimeTv: fetchTMDB('/discover/tv?with_genres=80&sort_by=popularity.desc'),
+                actionMovies: fetchTMDB('/discover/movie?with_genres=28&sort_by=popularity.desc'),
+                horrorMovies: fetchTMDB('/discover/movie?with_genres=27&sort_by=popularity.desc'),
+                romanceMovies: fetchTMDB('/discover/movie?with_genres=10749&sort_by=popularity.desc'),
+                actionTV: fetchTMDB('/discover/tv?with_genres=10759&sort_by=popularity.desc'),
+                horrorTV: fetchTMDB('/discover/tv?with_genres=9648&sort_by=popularity.desc'),
+                romanceTV: fetchTMDB('/discover/tv?with_genres=10766&sort_by=popularity.desc'),
+                actionAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10759&sort_by=popularity.desc'),
+                horrorAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,9648&sort_by=popularity.desc'),
+                romanceAnime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16,10766&sort_by=popularity.desc'),
+                actionKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc'),
+                horrorKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc'),
+                romanceKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc'),
+                animeTop: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=vote_average.desc&vote_count.gte=1000')
+            };
+
+            const deferredResults = await Promise.allSettled(Object.values(deferredEndpoints).map(promise => fetchWithTimeout(promise, 10000)));
+            const deferredValues = deferredResults.map(result => result.status === 'fulfilled' ? result.value : null);
+            const [actionRes, comedyRes, horrorRes, scifiRes, crimeTvRes, actionMoviesRes, horrorMoviesRes, romanceMoviesRes, actionTVRes, horrorTVRes, romanceTVRes, actionAnimeRes, horrorAnimeRes, romanceAnimeRes, actionKDramaRes, horrorKDramaRes, romanceKDramaRes, animeTopRes] = deferredValues;
+
+            if (actionRes) libraryData.action = actionRes.results.map(i => formatItem(i, 'movie'));
+            if (comedyRes) libraryData.comedy = comedyRes.results.map(i => formatItem(i, 'movie'));
+            if (horrorRes) libraryData.horror = horrorRes.results.map(i => formatItem(i, 'movie'));
+            if (scifiRes) libraryData.scifi = scifiRes.results.map(i => formatItem(i, 'movie'));
+            if (crimeTvRes) libraryData.crimeTv = crimeTvRes.results.map(i => formatItem(i, 'tv'));
+            if (actionMoviesRes) libraryData.actionMovies = actionMoviesRes.results.map(i => formatItem(i, 'movie'));
+            if (horrorMoviesRes) libraryData.horrorMovies = horrorMoviesRes.results.map(i => formatItem(i, 'movie'));
+            if (romanceMoviesRes) libraryData.romanceMovies = romanceMoviesRes.results.map(i => formatItem(i, 'movie'));
+            if (actionTVRes) libraryData.actionTV = actionTVRes.results.map(i => formatItem(i, 'tv'));
+            if (horrorTVRes) libraryData.horrorTV = horrorTVRes.results.map(i => formatItem(i, 'tv'));
+            if (romanceTVRes) libraryData.romanceTV = romanceTVRes.results.map(i => formatItem(i, 'tv'));
+            if (actionAnimeRes) libraryData.actionAnime = actionAnimeRes.results.map(i => formatItem(i, 'anime'));
+            if (horrorAnimeRes) libraryData.horrorAnime = horrorAnimeRes.results.map(i => formatItem(i, 'anime'));
+            if (romanceAnimeRes) libraryData.romanceAnime = romanceAnimeRes.results.map(i => formatItem(i, 'anime'));
+            if (actionKDramaRes) libraryData.actionKDrama = actionKDramaRes.results.map(i => formatItem(i, 'tv'));
+            if (horrorKDramaRes) libraryData.horrorKDrama = horrorKDramaRes.results.map(i => formatItem(i, 'tv'));
+            if (romanceKDramaRes) libraryData.romanceKDrama = romanceKDramaRes.results.map(i => formatItem(i, 'tv'));
+            if (animeTopRes) libraryData.animeTop = animeTopRes.results.map(i => formatItem(i, 'anime'));
+
+            if (
+                libraryData.actionAnime.length === 0 ||
+                libraryData.horrorAnime.length === 0 ||
+                libraryData.romanceAnime.length === 0 ||
+                libraryData.animeTop.length === 0
+            ) {
+                await loadAnimeFallbackData(true);
+            }
+
+            renderLibrary();
+        } catch (error) {
+            console.warn('Deferred load failed:', error);
+            await loadAnimeFallbackData(true);
+            renderLibrary();
+        }
+    }
+
+    function formatItem(item, forceType = null) {
+        if (!item) return null;
+        const isMovie = forceType === 'movie' || item.media_type === 'movie' || !!item.title;
+        const isAnime = forceType === 'anime' || (item.origin_country && Array.isArray(item.origin_country) && item.origin_country.includes('JP') && item.genre_ids && Array.isArray(item.genre_ids) && item.genre_ids.includes(16));
+        return {
+            id: item.id || Math.random(),
+            tmdb_id: item.id,
+            isMovie: isMovie,
+            isAnime: isAnime,
+            title: item.title || item.name,
+            originalTitle: item.original_title || item.original_name || item.title || item.name,
+            overview: item.overview || 'No description available for this title.',
+            poster: item.poster_path ? `${IMG_BASE_URL}${item.poster_path}` : 'https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500',
+            backdrop: item.backdrop_path ? `${IMG_BG_BASE}${item.backdrop_path}` : 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000',
+            rating: item.vote_average ? item.vote_average.toFixed(1) : 'NR',
+            year: (item.release_date || item.first_air_date || '').substring(0, 4)
+        };
+    }
+
+    function showToast(message, isPositive = true) {
+        const toast = document.getElementById('network-status');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.toggle('bg-emerald-600', isPositive);
+        toast.classList.toggle('bg-netflix-red', !isPositive);
+        toast.classList.remove('opacity-0', 'translate-y-10');
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-10');
+        }, 3600);
+    }
+
+    function setAuthProfile(profile) {
+        if (profile) {
+            localStorage.setItem('adamstream_google_profile', JSON.stringify(profile));
+        } else {
+            localStorage.removeItem('adamstream_google_profile');
+        }
+
+        if (googleLoginBtn) googleLoginBtn.classList.toggle('hidden', !!profile);
+        if (authUser) {
+            authUser.classList.toggle('hidden', !profile);
+            authUser.classList.toggle('flex', !!profile);
+        }
+        if (profile && authName) authName.textContent = profile.name || 'Google user';
+        if (profile && authAvatar) authAvatar.src = profile.picture || authAvatar.src;
+    }
+
+    async function handleGoogleToken(response) {
+        try {
+            if (!response || response.error || !response.access_token) {
+                throw new Error(response?.error || 'Missing Google access token');
+            }
+            const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${response.access_token}` }
+            });
+            if (!profileResponse.ok) throw new Error('Google profile request failed');
+            const profile = await profileResponse.json();
+            setAuthProfile({
+                name: profile.name || profile.email || 'Google user',
+                email: profile.email || '',
+                picture: profile.picture || ''
+            });
+            showToast('Signed in with Google');
+        } catch (error) {
+            showToast('Google sign-in could not finish.', false);
+        }
+    }
+
+    let googleTokenClient = null;
+
+    function hasGoogleClientId() {
+        return GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('PASTE_GOOGLE_CLIENT_ID');
+    }
+
+    function ensureGoogleAuth() {
+        if (!hasGoogleClientId()) {
+            showToast('Add your Google Client ID in streaming-script.js first.', false);
+            return false;
+        }
+        if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+            showToast('Google sign-in is still loading. Try again in a moment.', false);
+            return false;
+        }
+        if (!googleTokenClient) {
+            googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: 'openid email profile',
+                callback: handleGoogleToken
+            });
+        }
+        return true;
+    }
+
+    function initAuth() {
+        const savedProfile = JSON.parse(localStorage.getItem('adamstream_google_profile') || 'null');
+        setAuthProfile(savedProfile);
+
+        if (googleLoginBtn) {
+            googleLoginBtn.onclick = () => {
+                if (ensureGoogleAuth()) {
+                    googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+                }
+            };
+        }
+
+        if (authLogout) {
+            authLogout.onclick = () => {
+                if (window.google && window.google.accounts && window.google.accounts.id) {
+                    window.google.accounts.id.disableAutoSelect();
+                }
+                setAuthProfile(null);
+                showToast('Signed out');
+            };
+        }
+    }
+
+    function showApiKeyModal(error = false) {
+        if (!apiKeyModal) return;
+        apiKeyModal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        apiKeyModal.classList.add('flex');
+        if (error) {
+            apiKeyInput.value = '';
+            apiKeyInput.placeholder = 'Invalid Key! Enter a valid TMDB API Key...';
+            apiKeyInput.classList.add('border-red-500');
+        }
+    }
+
+    saveApiBtn.onclick = () => {
+        const key = apiKeyInput.value.trim();
+        if (key.length > 20) {
+            TMDB_API_KEY = key;
+            localStorage.setItem('tmdb_api_key', key);
+            apiKeyInput.classList.remove('border-red-500');
+            apiKeyInput.placeholder = 'Enter TMDB API Key...';
+
+            // Fade out modal
+            apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                apiKeyModal.classList.add('hidden');
+                apiKeyModal.classList.remove('flex');
+            }, 500);
+
+            if (heroSetup) heroSetup.classList.add('hidden');
+
+            // Reset to loader ui
+            if (heroTitle) heroTitle.textContent = "VERIFYING DATABASE...";
+            if (heroDesc) heroDesc.textContent = "Connecting securely to TMDB with your API key.";
+
+            loadData();
+        } else {
+            apiKeyInput.classList.add('border-red-500');
+        }
+    };
+
+    apiKeyInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveApiBtn.click();
+        }
+    });
+
+    // --- UI/NAVIGATION ---
+    function updateTabState(tab) {
+        currentTab = tab;
+        currentHeroIndex = 0;
+
+        const tabs = {
+            'home': homeBtn,
+            'anime': animeNavBtn,
+            'tv': document.getElementById('tv-nav-btn'),
+            'kdrama': document.getElementById('kdrama-nav-btn'),
+            'movies': document.getElementById('movies-nav-btn'),
+            'popular': document.getElementById('popular-nav-btn'),
+            'mylist': document.getElementById('mylist-nav-btn')
+        };
+
+        Object.entries(tabs).forEach(([key, btn]) => {
+            if (btn) {
+                // btn.classList.toggle('font-bold', tab === key);
+                // btn.classList.toggle('text-white', tab === key);
+            }
+        });
+
+        if (tab === 'home') {
+            featuredPool = [...libraryData.movies].slice(0, 8);
+        } else if (tab === 'anime') {
+            featuredPool = [...libraryData.anime].slice(0, 8);
+        } else if (tab === 'kdrama') {
+            featuredPool = [...libraryData.kdrama].slice(0, 8);
+        } else if (tab === 'tv') {
+            featuredPool = [...libraryData.tv].slice(0, 8);
+        } else if (tab === 'movies') {
+            featuredPool = [...libraryData.popular].slice(0, 8);
+        } else if (tab === 'popular') {
+            featuredPool = [...libraryData.popular, ...libraryData.binge].sort(() => 0.5 - Math.random()).slice(0, 8);
+        } else if (tab === 'mylist') {
+            featuredPool = [...libraryData.myList].slice(0, 8);
+        }
+
+        if (searchInput && searchInput.value.length > 0) {
+            handleSearch(searchInput.value);
+        } else {
+            renderLibrary();
+            heroSection.style.display = 'flex';
+            contentRows.classList.add('-mt-20');
+            contentRows.classList.remove('mt-24');
+            startHeroRotation();
+            if (featuredPool[currentHeroIndex]) updateHeroUI(featuredPool[currentHeroIndex]);
+        }
+    }
+
+    function goHome() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('home');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goAnime() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('anime');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goKDrama() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('kdrama');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goTV() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('tv');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goMovies() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('movies');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goPopular() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('popular');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goMyList() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('mylist');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Profile functions completely removed
+
+    function updateHeroUI(item) {
+        const heroContent = document.getElementById('hero-content-wrap');
+        heroBg.style.opacity = '0.5';
+        if (heroContent) heroContent.style.opacity = '0';
+
+        setTimeout(() => {
+            heroBg.src = item.backdrop;
+            heroTitle.textContent = item.title;
+            heroDesc.textContent = item.overview;
+            heroBg.style.opacity = '1';
+            if (heroContent) heroContent.style.opacity = '1';
+        }, 300);
+
+        heroPlay.onclick = () => playMedia(item);
+        heroInfo.onclick = () => openModal(item);
+    }
+
+    function startHeroRotation() {
+        clearInterval(heroInterval);
+        const rotate = () => {
+            if (featuredPool.length === 0) return;
+            currentHeroIndex = (currentHeroIndex + 1) % featuredPool.length;
+            const nextItem = featuredPool[currentHeroIndex];
+            const heroContent = document.getElementById('hero-content-wrap');
+
+            // Seamless Fade Logic
+            if (heroBg) {
+                heroBg.style.opacity = '0';
+                if (heroContent) heroContent.style.opacity = '0';
+
+                setTimeout(() => {
+                    heroBg.src = nextItem.backdrop;
+                    heroBg.style.opacity = '1';
+                    if (heroContent) heroContent.style.opacity = '1';
+
+                    heroTitle.textContent = nextItem.title;
+                    heroDesc.textContent = nextItem.overview;
+                    heroPlay.onclick = () => playMedia(nextItem);
+                    heroInfo.onclick = () => openModal(nextItem);
+                }, 1500);
+            }
+        };
+        heroInterval = setInterval(rotate, 8000);
+    }
+
+    // --- MODAL ---
+    async function openModal(item) {
+        if (!item || !detailModal) return;
+        document.getElementById('modal-image').src = item.backdrop || item.poster;
+        document.getElementById('modal-title').textContent = item.title;
+        document.getElementById('
