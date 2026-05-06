@@ -155,9 +155,15 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // SUB SOURCES — Pure iframe embeds (AniKai style)
     const ANIME_SUB_SOURCES = [
-        // 1. VidSrc.to — The current industry standard for reliability
+        // 1. VidSrc.to (AniList ID) — Exact AniKai style mapping
         {
             name: 'VidSrc.to Sub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.to/embed/anime/${anilistId}/${animeEpisode}` : null
+        },
+        // 2. VidSrc.to (TMDB Fallback)
+        {
+            name: 'VidSrc.to TV',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
         },
         // 2. VidSrc.me — Extremely stable fallback
@@ -180,9 +186,15 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
 
     // DUB SOURCES — Pure iframe embeds
     const ANIME_DUB_SOURCES = [
-        // 1. VidSrc.to Dub
+        // 1. VidSrc.to Dub (AniList ID)
         {
             name: 'VidSrc.to Dub',
+            needsAnimeIds: true,
+            build: async ({ anilistId, animeEpisode }) => anilistId ? `https://vidsrc.to/embed/anime/${anilistId}/${animeEpisode}` : null
+        },
+        // 2. VidSrc.to Dub (TMDB Fallback)
+        {
+            name: 'VidSrc.to TV',
             build: ({ tmdbId, season, episode }) => tmdbId ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : null
         },
         // 2. VidSrc.me Dub
@@ -277,7 +289,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % sources.length;
         }
 
-        return null;
+        // NUCLEAR OPTION: If all anime sources fail, use the standard TV fallback
+        // This uses the same logic as regular movies/TV which we know works.
+        const tvFallback = `https://vidsrc.to/embed/tv/${item.tmdb_id}/${episodeInfo.season}/${episodeInfo.episode}`;
+        console.log(`🚀 All anime sources failed. Using TV Fallback: ${tvFallback}`);
+        return tvFallback;
     }
 
     function getAnimeSourceLabel() {
@@ -1448,8 +1464,6 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         if (item.isAnime) {
             setPlayerControlsMode('anime');
-            animeDubMode = false;
-            currentAnimeSourceIdx = 0;
             updateAnimeToggleButtons();
 
             const seasons = await ensureSeasonData(item);
