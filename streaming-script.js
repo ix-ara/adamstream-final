@@ -36,6 +36,11 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     const btnSub = document.getElementById('btn-sub');
     const btnDub = document.getElementById('btn-dub');
     const dubHint = document.getElementById('dub-hint');
+    const googleLoginBtn = document.getElementById('google-login-btn');
+    const authUser = document.getElementById('auth-user');
+    const authAvatar = document.getElementById('auth-avatar');
+    const authName = document.getElementById('auth-name');
+    const authLogout = document.getElementById('auth-logout');
     
     // UI Panels Let
     const profileScreen = document.getElementById('profile-screen');
@@ -105,6 +110,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     let currentServer = 'prime'; // Default to the highest-quality preferred source
     const SERVER_PRIORITY = ['prime', 'alpha', 'delta', 'legacy'];
     let fallbackServerIndex = 0;
+    const GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
 
     // Profile states removed
 
@@ -134,34 +140,44 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     // Anime endpoints need explicit sub/dub routes. TV endpoints can ignore language hints.
     const ANIME_SUB_SOURCES = [
         {
-            name: 'Vidsrc CC',
-            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true`
-        },
-        {
             name: 'VidLink',
             needsAnimeIds: true,
-            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/sub` : null
+            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/sub?autoplay=true` : null
         },
         {
             name: 'Vidsrc Player',
             needsAnimeIds: true,
             build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=false` : null
+        },
+        {
+            name: 'Vidsrc CC',
+            needsAnimeIds: true,
+            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${absoluteEpisode}/sub?autoPlay=true` : null
+        },
+        {
+            name: 'Vidsrc CC TMDB',
+            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/sub?autoPlay=true`
         }
     ];
     const ANIME_DUB_SOURCES = [
         {
-            name: 'Vidsrc CC',
-            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true`
-        },
-        {
             name: 'VidLink',
             needsAnimeIds: true,
-            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/dub` : null
+            build: async ({ malId, absoluteEpisode }) => malId ? `https://vidlink.pro/anime/${malId}/${absoluteEpisode}/dub?autoplay=true` : null
         },
         {
             name: 'Vidsrc Player',
             needsAnimeIds: true,
             build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://player.vidsrc.co/embed/anime/${anilistId}/${absoluteEpisode}?dub=true` : null
+        },
+        {
+            name: 'Vidsrc CC',
+            needsAnimeIds: true,
+            build: async ({ anilistId, absoluteEpisode }) => anilistId ? `https://vidsrc.cc/v2/embed/anime/ani${anilistId}/${absoluteEpisode}/dub?autoPlay=true` : null
+        },
+        {
+            name: 'Vidsrc CC TMDB',
+            build: ({ tmdbId, absoluteEpisode }) => `https://vidsrc.cc/v2/embed/anime/tmdb${tmdbId}/${absoluteEpisode}/dub?autoPlay=true`
         }
     ];
     let currentAnimeSourceIdx = 0;
@@ -492,6 +508,103 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         };
     }
 
+    function showToast(message, isPositive = true) {
+        const toast = document.getElementById('network-status');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.toggle('bg-emerald-600', isPositive);
+        toast.classList.toggle('bg-netflix-red', !isPositive);
+        toast.classList.remove('opacity-0', 'translate-y-10');
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-10');
+        }, 3600);
+    }
+
+    function setAuthProfile(profile) {
+        if (profile) {
+            localStorage.setItem('adamstream_google_profile', JSON.stringify(profile));
+        } else {
+            localStorage.removeItem('adamstream_google_profile');
+        }
+
+        if (googleLoginBtn) googleLoginBtn.classList.toggle('hidden', !!profile);
+        if (authUser) {
+            authUser.classList.toggle('hidden', !profile);
+            authUser.classList.toggle('flex', !!profile);
+        }
+        if (profile && authName) authName.textContent = profile.name || 'Google user';
+        if (profile && authAvatar) authAvatar.src = profile.picture || authAvatar.src;
+    }
+
+    async function handleGoogleToken(response) {
+        try {
+            if (!response || response.error || !response.access_token) {
+                throw new Error(response?.error || 'Missing Google access token');
+            }
+            const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${response.access_token}` }
+            });
+            if (!profileResponse.ok) throw new Error('Google profile request failed');
+            const profile = await profileResponse.json();
+            setAuthProfile({
+                name: profile.name || profile.email || 'Google user',
+                email: profile.email || '',
+                picture: profile.picture || ''
+            });
+            showToast('Signed in with Google');
+        } catch (error) {
+            showToast('Google sign-in could not finish.', false);
+        }
+    }
+
+    let googleTokenClient = null;
+
+    function hasGoogleClientId() {
+        return GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('PASTE_GOOGLE_CLIENT_ID');
+    }
+
+    function ensureGoogleAuth() {
+        if (!hasGoogleClientId()) {
+            showToast('Add your Google Client ID in streaming-script.js first.', false);
+            return false;
+        }
+        if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+            showToast('Google sign-in is still loading. Try again in a moment.', false);
+            return false;
+        }
+        if (!googleTokenClient) {
+            googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: 'openid email profile',
+                callback: handleGoogleToken
+            });
+        }
+        return true;
+    }
+
+    function initAuth() {
+        const savedProfile = JSON.parse(localStorage.getItem('adamstream_google_profile') || 'null');
+        setAuthProfile(savedProfile);
+
+        if (googleLoginBtn) {
+            googleLoginBtn.onclick = () => {
+                if (ensureGoogleAuth()) {
+                    googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+                }
+            };
+        }
+
+        if (authLogout) {
+            authLogout.onclick = () => {
+                if (window.google && window.google.accounts && window.google.accounts.id) {
+                    window.google.accounts.id.disableAutoSelect();
+                }
+                setAuthProfile(null);
+                showToast('Signed out');
+            };
+        }
+    }
+
     function showApiKeyModal(error = false) {
         if (!apiKeyModal) return;
         apiKeyModal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
@@ -522,7 +635,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             
             // Reset to loader ui
             if (heroTitle) heroTitle.textContent = "VERIFYING DATABASE...";
-            if (heroDesc) heroDesc.textContent = "Connecting securely to the TMDB cinematic servers with your API key.";
+            if (heroDesc) heroDesc.textContent = "Connecting securely to TMDB with your API key.";
             
             loadData();
         } else {
@@ -1116,19 +1229,19 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     function createMovieCard(item, isTop10 = false) {
         const card = document.createElement('button');
         card.type = 'button';
-        card.className = 'flex-shrink-0 w-32 md:w-48 aspect-[2/3] relative rounded-md overflow-hidden cursor-pointer transition-all duration-500 hover:scale-110 hover:z-30 group shadow-xl shadow-black shadow-glow text-left focus:outline-none focus:ring-2 focus:ring-netflix-red';
+        card.className = 'movie-card flex-shrink-0 w-32 md:w-48 aspect-[2/3] relative rounded-md overflow-hidden cursor-pointer transition-all duration-500 hover:z-30 group shadow-xl shadow-black shadow-glow text-left focus:outline-none focus:ring-2 focus:ring-netflix-red';
         
         card.innerHTML = `
-            <img src="${item.poster}" class="w-full h-full object-cover" alt="${item.title}" loading="lazy">
-            ${isTop10 ? `<div class="absolute top-0 left-0 bg-netflix-red text-white text-[8px] font-black p-1 px-2 uppercase tracking-tighter shadow-lg z-10 w-full text-center">TRENDING</div>` : ''}
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                <div class="flex gap-2 mb-2 translate-y-6 group-hover:translate-y-0 transition-transform duration-500 ease-out">
-                   <span class="bg-white text-black w-8 h-8 rounded-full flex items-center justify-center hover:bg-zinc-200 shadow-2xl scale-90 group-hover:scale-100 transition-transform"><span class="material-symbols-outlined fill text-sm">play_arrow</span></span>
-                   <span class="bg-zinc-800/80 text-white w-8 h-8 rounded-full flex items-center justify-center border border-white/20 hover:bg-zinc-700 shadow-2xl"><span class="material-symbols-outlined text-sm">add</span></span>
+            <img src="${item.poster}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="${item.title}" loading="lazy">
+            ${isTop10 ? `<div class="absolute top-2 left-2 bg-netflix-red text-white text-[8px] font-black py-1 px-2 uppercase tracking-[0.16em] shadow-lg z-10 rounded">Spotlight</div>` : ''}
+            <div class="absolute inset-x-0 bottom-0 bg-[#1d1b17]/95 border-t border-white/10 backdrop-blur-md p-3">
+                <div class="flex gap-2 mb-2">
+                   <span class="bg-netflix-red text-white w-8 h-8 rounded-md flex items-center justify-center shadow-2xl transition-transform group-hover:scale-105"><span class="material-symbols-outlined fill text-sm">play_arrow</span></span>
+                   <span class="bg-white/10 text-white w-8 h-8 rounded-md flex items-center justify-center border border-white/15 hover:bg-white/15 shadow-2xl"><span class="material-symbols-outlined text-sm">add</span></span>
                 </div>
                 <h4 class="text-xs font-black truncate drop-shadow-2xl mb-1">${item.title}</h4>
                 <div class="flex items-center gap-1 text-[9px] text-zinc-300 font-black tracking-tight">
-                    <span class="text-emerald-400 font-bold">${item.rating}</span>
+                    <span class="text-[#6ee7b7] font-bold">${item.rating}</span>
                     <span class="border border-white/30 px-1 rounded-sm">${item.isMovie ? 'Film' : 'Series'}</span>
                     <span>${item.year}</span>
                 </div>
@@ -1430,6 +1543,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
     function init() {
         if (isInitialized) return;
         isInitialized = true;
+        initAuth();
 
         // Safety Timeout: Force hide the loader or show delay message if hung
         setTimeout(() => {
@@ -1438,8 +1552,8 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
             }
             // If we're still on the logo, show some feedback unconditionally after timeout
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
-                heroTitle.textContent = 'CINEMATIC SERVER DELAY';
-                heroDesc.textContent = 'We are having trouble connecting to the global database. Click the button below to try loading the server connection again.';
+                heroTitle.textContent = 'LIBRARY CONNECTION DELAY';
+                heroDesc.textContent = 'We are having trouble connecting to the title database. Try loading the catalog again.';
                 if(heroSetup) heroSetup.classList.remove('hidden');
             }
         }, 8000);
@@ -1466,7 +1580,7 @@ let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
         if(heroSetup) heroSetup.onclick = () => {
             heroSetup.classList.add('hidden');
             if (heroTitle) heroTitle.textContent = 'LOADING CONTENT';
-            if (heroDesc) heroDesc.textContent = 'Preparing your premium cinematic experience. Please wait while we synchronize with the global database...';
+            if (heroDesc) heroDesc.textContent = 'Preparing your library. Please wait while we sync fresh picks from the global database...';
             loadData();
         };
         if(document.getElementById('nav-logo')) document.getElementById('nav-logo').onclick = goHome;
