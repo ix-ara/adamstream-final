@@ -1741,6 +1741,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         const scrollContainer = document.createElement('div');
         scrollContainer.className = 'flex gap-3 overflow-x-auto no-scrollbar pb-8 pt-2 scroll-smooth px-1';
+        scrollContainer.style.minHeight = '320px'; // Optimization: Prevent layout shift
 
         const leftBtn = document.createElement('button');
         leftBtn.className = 'absolute left-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-r-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
@@ -1759,10 +1760,6 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             scrollContainer.scrollBy({ left: window.innerWidth * 0.7, behavior: 'smooth' });
         };
 
-        items.forEach((item, idx) => {
-            scrollContainer.appendChild(createMovieCard(item, isTrending && idx < 5));
-        });
-
         rowWrapper.appendChild(titleWrapper);
         rowWrapper.classList.add('relative', 'group');
         rowWrapper.appendChild(leftBtn);
@@ -1772,11 +1769,19 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
+                    // Optimization: Deferred rendering of cards
+                    if (scrollContainer.children.length === 0) {
+                        const fragment = document.createDocumentFragment();
+                        items.forEach((item, idx) => {
+                            fragment.appendChild(createMovieCard(item, isTrending && idx < 5));
+                        });
+                        scrollContainer.appendChild(fragment);
+                    }
                     entry.target.classList.add('visible');
                     observer.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.05 });
+        }, { threshold: 0.01, rootMargin: '300px' });
 
         observer.observe(rowWrapper);
         return rowWrapper;
