@@ -1,4 +1,4 @@
-let TMDB_API_KEY = '547c2cf5311a8f4499454a9fddb0fb8d';
+let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '';
 (() => {
     // Initialization Guard
     let isInitialized = false;
@@ -730,7 +730,8 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         } catch (e) {
             console.error('TMDB error:', e);
             if (e.message === 'Invalid API Key') {
-                console.error('The hardcoded TMDB API Key is invalid or rate limited.');
+                console.error('The stored TMDB API Key is invalid or rate limited.');
+                showApiKeyModal(true);
             }
             return null;
         }
@@ -903,7 +904,21 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     async function loadData() {
         if (!TMDB_API_KEY) {
+            if (apiKeyModal) showApiKeyModal();
             if (appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
+            if (heroSetup) heroSetup.classList.remove('hidden');
+            if (!libraryData.movies.length) {
+                libraryData.movies = [
+                    { id: 101, tmdb_id: 823464, title: "Godzilla x Kong", year: "2024", rating: "7.2", overview: "The epic battle continues!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000" },
+                    { id: 102, tmdb_id: 1022789, title: "Inside Out 2", year: "2024", rating: "8.1", overview: "Emotions are back!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2000" }
+                ];
+            }
+            if (!libraryData.tv.length) {
+                libraryData.tv = [
+                    { id: 901, tmdb_id: 1396, title: "Breaking Bad", year: "2008", rating: "9.5", overview: "A chemistry teacher turned kingpin.", isMovie: false, isAnime: false, poster: "https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000" }
+                ];
+            }
+            updateTabState(currentTab);
             return;
         }
         if (apiKeyModal) apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
@@ -1954,6 +1969,10 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (isInitialized) return;
         isInitialized = true;
         initAuth();
+
+        if (!TMDB_API_KEY) {
+            showApiKeyModal();
+        }
 
         // Safety Timeout: Force hide the loader or show delay message if hung
         setTimeout(() => {
