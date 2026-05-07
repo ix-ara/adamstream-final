@@ -114,7 +114,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     let animeDubMode = false;
     let featuredPool = [];
     let currentServer = 'alpha'; // Default to the broadest TMDB-backed source
-    const SERVER_PRIORITY = ['alpha', 'delta', 'prime', 'legacy'];
+    const SERVER_PRIORITY = ['alpha', 'delta']; // Only 2 working servers
     let fallbackServerIndex = 0;
     let playerHelpTimer = null;
     let currentPlaybackToken = 0;
@@ -133,16 +133,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             name: 'Delta',
             movie: (id) => `https://vidsrc.cc/v2/embed/movie/${id}?autoPlay=true`,
             tv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
-        },
-        prime: {
-            name: 'Prime',
-            movie: (id) => `https://vidsrc.xyz/embed/movie?tmdb=${id}&autoplay=1`,
-            tv: (id, s, e) => `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}&autoplay=1`
-        },
-        legacy: {
-            name: 'Legacy',
-            movie: (id) => `https://vidsrc.store/embed/movie/${id}`,
-            tv: (id, s, e) => `https://vidsrc.store/embed/tv/${id}/${s}/${e}`
         }
     };
 
@@ -592,23 +582,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         playerIframe.onerror = () => {
             if (playbackToken !== currentPlaybackToken) return;
             hidePlayerLoader();
-            if (!currentPlayingItem) return;
-
-            if (currentPlayingItem.isAnime) {
-                currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % (animeDubMode ? ANIME_DUB_SOURCES.length : ANIME_SUB_SOURCES.length);
-                const position = getCurrentPlaybackPosition();
-                showToast('Anime embed failed — switching source...', false);
-                playMedia(currentPlayingItem, position.season, position.episode);
-            } else {
-                const nextServer = getNextServer();
-                if (nextServer && nextServer !== currentServer) {
-                    currentServer = nextServer;
-                    refreshServerButtons();
-                    const position = getCurrentPlaybackPosition();
-                    showToast(`Source failed — switching to ${nextServer}`, false);
-                    playMedia(currentPlayingItem, position.season, position.episode);
-                }
-            }
+            // No automatic switching - users must manually switch servers if needed
         };
         playerIframe.onload = () => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
