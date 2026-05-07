@@ -730,45 +730,8 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     function schedulePlayerHelp(item, token) {
         clearTimeout(playerHelpTimer);
-        const isAnime = item && item.isAnime;
-        // For anime: wait 12 s then auto-try the next source.
-        // For movies/TV: wait 9 s then show a help toast.
-        const delay = isAnime ? 12000 : 9000;
-
-        playerHelpTimer = setTimeout(async () => {
-            if (token !== currentPlaybackToken || !videoOverlay || videoOverlay.classList.contains('pointer-events-none')) return;
-
-            if (isAnime) {
-                // Auto-advance to next source
-                const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
-                const nextIdx = (currentAnimeSourceIdx + 1) % sources.length;
-                currentAnimeSourceIdx = nextIdx;
-                const nextName = sources[nextIdx]?.name || 'next source';
-                if (playerSourceName) playerSourceName.textContent = `Trying ${nextName}...`;
-                showToast(`Source timed out — switching to ${nextName}`, false);
-
-                const position = getCurrentPlaybackPosition();
-                // Re-play only if still watching the same thing
-                if (token === currentPlaybackToken) {
-                    playMedia(currentPlayingItem, position.season, position.episode);
-                }
-            } else {
-                hidePlayerLoader();
-                if (playerTitleOverlay) playerTitleOverlay.classList.remove('opacity-0');
-                const nextServer = getNextServer();
-                if (nextServer && nextServer !== currentServer) {
-                    currentServer = nextServer;
-                    refreshServerButtons();
-                    showToast(`Stream timed out — switching to ${nextServer}`, false);
-                    const position = getCurrentPlaybackPosition();
-                    if (token === currentPlaybackToken) {
-                        playMedia(currentPlayingItem, position.season, position.episode);
-                    }
-                } else {
-                    showToast('Stream is loading slowly. Try a different server below.', false);
-                }
-            }
-        }, delay);
+        // No auto-switching. Server will load indefinitely until user manually switches.
+        // Removed automatic timeout and server switching logic per user request.
     }
 
     // --- TMDB FETCHING ---
