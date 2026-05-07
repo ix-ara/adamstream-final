@@ -482,11 +482,17 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     }
 
     const BASE_URL = 'https://api.themoviedb.org/3';
-    const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w300';
-    const IMG_BG_BASE = 'https://image.tmdb.org/t/p/w780';
+    const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+    const IMG_BG_BASE = 'https://image.tmdb.org/t/p/w1280';
     const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
     const ANIME_PLACEHOLDER_POSTER = 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?q=80&w=500';
     const ANIME_PLACEHOLDER_BACKDROP = 'https://images.unsplash.com/photo-1541562232579-512a21360020?q=80&w=1600';
+
+    function getNextServer() {
+        const queue = getServerQueue(currentServer);
+        const currentIndex = queue.indexOf(currentServer);
+        return queue[(currentIndex + 1) % queue.length] || queue[0];
+    }
 
     const fetchWithTimeout = (promise, ms = 10000) => {
         return Promise.race([
@@ -729,7 +735,18 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             } else {
                 hidePlayerLoader();
                 if (playerTitleOverlay) playerTitleOverlay.classList.remove('opacity-0');
-                showToast('Stream is loading slowly. Try a different server below.', false);
+                const nextServer = getNextServer();
+                if (nextServer && nextServer !== currentServer) {
+                    currentServer = nextServer;
+                    refreshServerButtons();
+                    showToast(`Stream timed out — switching to ${nextServer}`, false);
+                    const position = getCurrentPlaybackPosition();
+                    if (token === currentPlaybackToken) {
+                        playMedia(currentPlayingItem, position.season, position.episode);
+                    }
+                } else {
+                    showToast('Stream is loading slowly. Try a different server below.', false);
+                }
             }
         }, delay);
     }
@@ -1085,8 +1102,8 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             title: item.title || item.name,
             originalTitle: item.original_title || item.original_name || item.title || item.name,
             overview: item.overview || 'No description available for this title.',
-            poster: item.poster_path ? `${IMG_BASE_URL}${item.poster_path}` : 'https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500',
-            backdrop: item.backdrop_path ? `${IMG_BG_BASE}${item.backdrop_path}` : 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000',
+            poster: item.poster_path ? `${IMG_BASE_URL}${item.poster_path}` : (item.backdrop_path ? `${IMG_BASE_URL}${item.backdrop_path}` : 'https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500'),
+            backdrop: item.backdrop_path ? `${IMG_BG_BASE}${item.backdrop_path}` : (item.poster_path ? `${IMG_BG_BASE}${item.poster_path}` : 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000'),
             rating: item.vote_average ? item.vote_average.toFixed(1) : 'NR',
             year: (item.release_date || item.first_air_date || '').substring(0, 4)
         };
@@ -1712,7 +1729,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         card.className = 'movie-card flex-shrink-0 w-32 md:w-48 aspect-[2/3] relative rounded-md overflow-hidden cursor-pointer transition-all duration-500 hover:z-30 group shadow-xl shadow-black shadow-glow text-left focus:outline-none focus:ring-2 focus:ring-netflix-red';
 
         card.innerHTML = `
-            <img src="${item.poster}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="${item.title}" loading="lazy">
+            <img src="${item.poster}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="${item.title}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500'">
             ${isTop10 ? `<div class="absolute top-2 left-2 bg-netflix-red text-white text-[8px] font-black py-1 px-2 uppercase tracking-[0.16em] shadow-lg z-10 rounded">Spotlight</div>` : ''}
             <div class="absolute inset-x-0 bottom-0 bg-[#1d1b17]/95 border-t border-white/10 backdrop-blur-md p-3">
                 <div class="flex gap-2 mb-2">
