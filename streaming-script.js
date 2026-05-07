@@ -589,7 +589,27 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             return;
         }
 
-        playerIframe.onerror = null;
+        playerIframe.onerror = () => {
+            if (playbackToken !== currentPlaybackToken) return;
+            hidePlayerLoader();
+            if (!currentPlayingItem) return;
+
+            if (currentPlayingItem.isAnime) {
+                currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % (animeDubMode ? ANIME_DUB_SOURCES.length : ANIME_SUB_SOURCES.length);
+                const position = getCurrentPlaybackPosition();
+                showToast('Anime embed failed — switching source...', false);
+                playMedia(currentPlayingItem, position.season, position.episode);
+            } else {
+                const nextServer = getNextServer();
+                if (nextServer && nextServer !== currentServer) {
+                    currentServer = nextServer;
+                    refreshServerButtons();
+                    const position = getCurrentPlaybackPosition();
+                    showToast(`Source failed — switching to ${nextServer}`, false);
+                    playMedia(currentPlayingItem, position.season, position.episode);
+                }
+            }
+        };
         playerIframe.onload = () => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
         };
@@ -869,6 +889,12 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     async function fetchJikanAnimeList(endpoint, params = {}) {
         const data = await fetchJikan(endpoint, { sfw: true, limit: 24, ...params });
         return (data?.data || []).map(formatJikanAnime).filter(Boolean);
+    }
+
+    async function fetchTmdbAnimeList(endpoint) {
+        const data = await fetchTMDB(endpoint);
+        if (!data || !Array.isArray(data.results)) return [];
+        return data.results.map(i => formatItem(i, 'anime')).filter(Boolean);
     }
 
     function delay(ms) {
