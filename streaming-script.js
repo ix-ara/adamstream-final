@@ -1,4 +1,4 @@
-let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '';
+let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6f20ca517de79';
 (() => {
     // Initialization Guard
     let isInitialized = false;
@@ -57,8 +57,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '';
     const saveApiBtn = document.getElementById('save-api-btn');
     const seasonSelect = document.getElementById('season-select');
     // Profile Elements removed
-
-
 
     let libraryData = {
         movies: [],
@@ -576,11 +574,27 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '';
                 loaderText.textContent = 'Optimizing Stream...';
             }
         }
+
+        if (!playerIframe) {
+            // No iframe present — just hide loader after timeout to avoid blocking UI
+            setTimeout(() => {
+                if (playbackToken === currentPlaybackToken) hidePlayerLoader();
+            }, loaderTimeout);
+            return;
+        }
+
         playerIframe.onerror = null;
         playerIframe.onload = () => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
         };
-        playerIframe.src = url;
+        try {
+            playerIframe.src = url;
+        } catch (e) {
+            console.warn('Failed to set iframe src', e);
+            setTimeout(() => {
+                if (playbackToken === currentPlaybackToken) hidePlayerLoader();
+            }, loaderTimeout);
+        }
 
         setTimeout(() => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
@@ -666,12 +680,25 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const trailerUrl = await fetchTrailerUrl(item);
 
         setPlayerControlsMode('preview');
-        playerIframe.onerror = null;
-        playerIframe.onload = hidePlayerLoader;
-        playerIframe.src = trailerUrl || buildPreviewFallbackFrame(item);
-        playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
-        videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
-        playerTitleOverlay.classList.remove('opacity-0');
+
+        if (playerIframe) {
+            playerIframe.onerror = null;
+            playerIframe.onload = hidePlayerLoader;
+            try {
+                playerIframe.src = trailerUrl || buildPreviewFallbackFrame(item);
+            } catch (e) {
+                console.warn('Failed to set iframe src for trailer fallback', e);
+            }
+        } else {
+            // If no iframe, ensure loader is hidden eventually
+            setTimeout(() => {
+                if (currentPlaybackToken) hidePlayerLoader();
+            }, 1500);
+        }
+
+        if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
+        if (videoOverlay) videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        if (playerTitleOverlay) playerTitleOverlay.classList.remove('opacity-0');
         document.body.style.overflow = 'hidden';
     }
 
@@ -701,7 +728,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 }
             } else {
                 hidePlayerLoader();
-                playerTitleOverlay.classList.remove('opacity-0');
+                if (playerTitleOverlay) playerTitleOverlay.classList.remove('opacity-0');
                 showToast('Stream is loading slowly. Try a different server below.', false);
             }
         }, delay);
@@ -1166,46 +1193,52 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (!apiKeyModal) return;
         apiKeyModal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
         apiKeyModal.classList.add('flex');
-        if (error) {
+        if (error && apiKeyInput) {
             apiKeyInput.value = '';
             apiKeyInput.placeholder = 'Invalid Key! Enter a valid TMDB API Key...';
             apiKeyInput.classList.add('border-red-500');
         }
     }
 
-    saveApiBtn.onclick = () => {
-        const key = apiKeyInput.value.trim();
-        if (key.length > 20) {
-            TMDB_API_KEY = key;
-            localStorage.setItem('tmdb_api_key', key);
-            apiKeyInput.classList.remove('border-red-500');
-            apiKeyInput.placeholder = 'Enter TMDB API Key...';
+    if (saveApiBtn && apiKeyInput) {
+        saveApiBtn.onclick = () => {
+            const key = apiKeyInput.value.trim();
+            if (key.length > 20) {
+                TMDB_API_KEY = key;
+                localStorage.setItem('tmdb_api_key', key);
+                apiKeyInput.classList.remove('border-red-500');
+                apiKeyInput.placeholder = 'Enter TMDB API Key...';
 
-            // Fade out modal
-            apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
-            setTimeout(() => {
-                apiKeyModal.classList.add('hidden');
-                apiKeyModal.classList.remove('flex');
-            }, 500);
+                // Fade out modal
+                apiKeyModal && apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    if (apiKeyModal) {
+                        apiKeyModal.classList.add('hidden');
+                        apiKeyModal.classList.remove('flex');
+                    }
+                }, 500);
 
-            if (heroSetup) heroSetup.classList.add('hidden');
+                if (heroSetup) heroSetup.classList.add('hidden');
 
-            // Reset to loader ui
-            if (heroTitle) heroTitle.textContent = "VERIFYING DATABASE...";
-            if (heroDesc) heroDesc.textContent = "Connecting securely to TMDB with your API key.";
+                // Reset to loader ui
+                if (heroTitle) heroTitle.textContent = "VERIFYING DATABASE...";
+                if (heroDesc) heroDesc.textContent = "Connecting securely to TMDB with your API key.";
 
-            loadData();
-        } else {
-            apiKeyInput.classList.add('border-red-500');
-        }
-    };
+                loadData();
+            } else {
+                apiKeyInput.classList.add('border-red-500');
+            }
+        };
+    }
 
-    apiKeyInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveApiBtn.click();
-        }
-    });
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (saveApiBtn) saveApiBtn.click();
+            }
+        });
+    }
 
     // --- UI/NAVIGATION ---
     function updateTabState(tab) {
@@ -1223,9 +1256,12 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         };
 
         Object.entries(tabs).forEach(([key, btn]) => {
-            if (btn) {
-                // btn.classList.toggle('font-bold', tab === key);
-                // btn.classList.toggle('text-white', tab === key);
+            if (btn && btn.classList) {
+                btn.classList.toggle('text-white', tab === key);
+                btn.classList.toggle('font-bold', tab === key);
+                btn.classList.toggle('border-b-2', tab === key);
+                btn.classList.toggle('border-netflix-red', tab === key);
+                btn.classList.toggle('text-zinc-400', tab !== key);
             }
         });
 
@@ -1249,9 +1285,11 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             handleSearch(searchInput.value);
         } else {
             renderLibrary();
-            heroSection.style.display = 'flex';
-            contentRows.classList.add('-mt-20');
-            contentRows.classList.remove('mt-24');
+            if (heroSection) heroSection.style.display = 'flex';
+            if (contentRows) {
+                contentRows.classList.add('-mt-20');
+                contentRows.classList.remove('mt-24');
+            }
             startHeroRotation();
             if (featuredPool[currentHeroIndex]) updateHeroUI(featuredPool[currentHeroIndex]);
         }
@@ -1310,19 +1348,19 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     function updateHeroUI(item) {
         const heroContent = document.getElementById('hero-content-wrap');
-        heroBg.style.opacity = '0.5';
+        if (heroBg) heroBg.style.opacity = '0.5';
         if (heroContent) heroContent.style.opacity = '0';
 
         setTimeout(() => {
-            heroBg.src = item.backdrop;
-            heroTitle.textContent = item.title;
-            heroDesc.textContent = item.overview;
-            heroBg.style.opacity = '1';
+            if (heroBg) heroBg.src = item.backdrop;
+            if (heroTitle) heroTitle.textContent = item.title;
+            if (heroDesc) heroDesc.textContent = item.overview;
+            if (heroBg) heroBg.style.opacity = '1';
             if (heroContent) heroContent.style.opacity = '1';
         }, 300);
 
-        heroPlay.onclick = () => playMedia(item);
-        heroInfo.onclick = () => openModal(item);
+        if (heroPlay) heroPlay.onclick = () => playMedia(item);
+        if (heroInfo) heroInfo.onclick = () => openModal(item);
     }
 
     function startHeroRotation() {
@@ -1339,14 +1377,14 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 if (heroContent) heroContent.style.opacity = '0';
 
                 setTimeout(() => {
-                    heroBg.src = nextItem.backdrop;
-                    heroBg.style.opacity = '1';
+                    if (heroBg) heroBg.src = nextItem.backdrop;
+                    if (heroBg) heroBg.style.opacity = '1';
                     if (heroContent) heroContent.style.opacity = '1';
 
-                    heroTitle.textContent = nextItem.title;
-                    heroDesc.textContent = nextItem.overview;
-                    heroPlay.onclick = () => playMedia(nextItem);
-                    heroInfo.onclick = () => openModal(nextItem);
+                    if (heroTitle) heroTitle.textContent = nextItem.title;
+                    if (heroDesc) heroDesc.textContent = nextItem.overview;
+                    if (heroPlay) heroPlay.onclick = () => playMedia(nextItem);
+                    if (heroInfo) heroInfo.onclick = () => openModal(nextItem);
                 }, 1500);
             }
         };
@@ -1356,14 +1394,23 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     // --- MODAL ---
     async function openModal(item) {
         if (!item || !detailModal) return;
-        document.getElementById('modal-image').src = item.backdrop || item.poster;
-        document.getElementById('modal-title').textContent = item.title;
-        document.getElementById('modal-desc').textContent = item.overview;
-        document.getElementById('modal-year').textContent = item.year;
-        document.getElementById('modal-rating').textContent = item.rating;
-        document.getElementById('modal-duration').textContent = item.isMovie ? 'Movie' : 'TV Series';
-        document.getElementById('modal-cast').textContent = 'Loading...';
-        document.getElementById('modal-genre').textContent = item.genres?.length ? item.genres.join(', ') : (item.isMovie ? 'Film' : (item.isAnime ? 'Anime' : 'Series'));
+        const modalImage = document.getElementById('modal-image');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalYear = document.getElementById('modal-year');
+        const modalRating = document.getElementById('modal-rating');
+        const modalDuration = document.getElementById('modal-duration');
+        const modalCast = document.getElementById('modal-cast');
+        const modalGenre = document.getElementById('modal-genre');
+
+        if (modalImage) modalImage.src = item.backdrop || item.poster;
+        if (modalTitle) modalTitle.textContent = item.title;
+        if (modalDesc) modalDesc.textContent = item.overview;
+        if (modalYear) modalYear.textContent = item.year;
+        if (modalRating) modalRating.textContent = item.rating;
+        if (modalDuration) modalDuration.textContent = item.isMovie ? 'Movie' : 'TV Series';
+        if (modalCast) modalCast.textContent = 'Loading...';
+        if (modalGenre) modalGenre.textContent = item.genres?.length ? item.genres.join(', ') : (item.isMovie ? 'Film' : (item.isAnime ? 'Anime' : 'Series'));
 
         const epSection = document.getElementById('episodes-section');
         const list = document.getElementById('episodes-list');
@@ -1373,10 +1420,13 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (list) list.innerHTML = '';
         if (seasonSelect) seasonSelect.innerHTML = '';
 
-        document.getElementById('modal-play').onclick = () => {
-            closeModal();
-            playMedia(item);
-        };
+        const modalPlay = document.getElementById('modal-play');
+        if (modalPlay) {
+            modalPlay.onclick = () => {
+                closeModal();
+                playMedia(item);
+            };
+        }
 
         // --- My List Toggle Logic ---
         const addListBtn = document.getElementById('modal-add-list');
@@ -1409,15 +1459,22 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         }
 
         detailModal.classList.remove('opacity-0', 'pointer-events-none');
-        detailModal.querySelector('#modal-content').classList.remove('scale-95');
-        detailModal.querySelector('#modal-content').classList.add('scale-100');
+        const modalContent = detailModal.querySelector('#modal-content');
+        if (modalContent) {
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+        }
         document.body.style.overflow = 'hidden';
     }
 
     function closeModal() {
+        if (!detailModal) return;
         detailModal.classList.add('opacity-0', 'pointer-events-none');
-        detailModal.querySelector('#modal-content').classList.remove('scale-100');
-        detailModal.querySelector('#modal-content').classList.add('scale-95');
+        const modalContent = detailModal.querySelector('#modal-content');
+        if (modalContent) {
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+        }
         document.body.style.overflow = '';
     }
 
@@ -1470,10 +1527,10 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const playbackToken = ++currentPlaybackToken;
         clearTimeout(playerHelpTimer);
         if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
-        videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        if (videoOverlay) videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
         document.body.style.overflow = 'hidden';
-        playerTitleOverlay.classList.remove('opacity-0');
-        playerTitle.textContent = `${item.title} - Loading...`;
+        if (playerTitleOverlay) playerTitleOverlay.classList.remove('opacity-0');
+        if (playerTitle) playerTitle.textContent = `${item.title} - Loading...`;
 
         currentPlayingItem = item;
 
@@ -1504,17 +1561,17 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 if (playerSourceName) playerSourceName.textContent = activeSrc?.name || 'Streaming';
 
                 setPlayerFrameUrl(animeUrl, playbackToken);
-                playerTitle.textContent = `${item.title} - S${selectedSeason} E${selectedEpisode} - ${animeDubMode ? 'Dub' : 'Sub'}`;
+                if (playerTitle) playerTitle.textContent = `${item.title} - S${selectedSeason} E${selectedEpisode} - ${animeDubMode ? 'Dub' : 'Sub'}`;
                 schedulePlayerHelp(item, playbackToken);
             } else {
                 const fallbackUrl = buildPreviewFallbackFrame(item);
                 setPlayerFrameUrl(fallbackUrl, playbackToken, 1800);
-                playerTitle.textContent = `${item.title} - Anime source unavailable`;
+                if (playerTitle) playerTitle.textContent = `${item.title} - Anime source unavailable`;
                 showToast('Anime source unavailable for this episode.', false);
             }
 
             setTimeout(() => {
-                if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
+                if (playbackToken === currentPlaybackToken && playerTitleOverlay) playerTitleOverlay.classList.add('opacity-0');
             }, 5000);
             return;
         }
@@ -1538,10 +1595,12 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const streamUrl = item.tmdb_id ? getServerUrl(item, season, episode) : null;
         if (streamUrl) {
             setPlayerFrameUrl(streamUrl, playbackToken);
-            if (item.isMovie) {
-                playerTitle.textContent = `${item.title} - Playing`;
-            } else {
-                playerTitle.textContent = `${item.title} - S${season} E${episode}`;
+            if (playerTitle) {
+                if (item.isMovie) {
+                    playerTitle.textContent = `${item.title} - Playing`;
+                } else {
+                    playerTitle.textContent = `${item.title} - S${season} E${episode}`;
+                }
             }
             schedulePlayerHelp(item, playbackToken);
         } else {
@@ -1549,19 +1608,21 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (playbackToken !== currentPlaybackToken) return;
 
             setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
-            playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
+            if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
         }
 
         setTimeout(() => {
-            if (playbackToken === currentPlaybackToken) playerTitleOverlay.classList.add('opacity-0');
+            if (playbackToken === currentPlaybackToken && playerTitleOverlay) playerTitleOverlay.classList.add('opacity-0');
         }, 5000);
     }
 
     function exitPlayer() {
         currentPlaybackToken += 1;
         clearTimeout(playerHelpTimer);
-        playerIframe.src = '';
-        videoOverlay.classList.add('opacity-0', 'pointer-events-none');
+        if (playerIframe) {
+            try { playerIframe.src = ''; } catch (e) { /* ignore */ }
+        }
+        if (videoOverlay) videoOverlay.classList.add('opacity-0', 'pointer-events-none');
         setPlayerControlsMode('hidden');
         hidePlayerLoader();
         // Reset anime state
@@ -1694,6 +1755,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         const scrollContainer = document.createElement('div');
         scrollContainer.className = 'flex gap-3 overflow-x-auto no-scrollbar pb-8 pt-2 scroll-smooth px-1';
+        scrollContainer.style.minHeight = '320px'; // Optimization: Prevent layout shift
 
         const leftBtn = document.createElement('button');
         leftBtn.className = 'absolute left-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-r-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
@@ -1712,10 +1774,6 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             scrollContainer.scrollBy({ left: window.innerWidth * 0.7, behavior: 'smooth' });
         };
 
-        items.forEach((item, idx) => {
-            scrollContainer.appendChild(createMovieCard(item, isTrending && idx < 5));
-        });
-
         rowWrapper.appendChild(titleWrapper);
         rowWrapper.classList.add('relative', 'group');
         rowWrapper.appendChild(leftBtn);
@@ -1725,11 +1783,19 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
+                    // Optimization: Deferred rendering of cards
+                    if (scrollContainer.children.length === 0) {
+                        const fragment = document.createDocumentFragment();
+                        items.forEach((item, idx) => {
+                            fragment.appendChild(createMovieCard(item, isTrending && idx < 5));
+                        });
+                        scrollContainer.appendChild(fragment);
+                    }
                     entry.target.classList.add('visible');
                     observer.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.05 });
+        }, { threshold: 0.01, rootMargin: '300px' });
 
         observer.observe(rowWrapper);
         return rowWrapper;
@@ -1825,14 +1891,14 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         Object.entries(categories).forEach(([name, items]) => {
             if (items.length > 0) {
                 const row = createRow(name, items, name.includes("Trending") || name.includes("Popular"));
-                if (row) contentRows.appendChild(row);
+                if (row && contentRows) contentRows.appendChild(row);
             }
         });
     }
 
     function renderGrid(title, items) {
         if (!contentRows) return;
-        heroSection.style.display = 'none';
+        if (heroSection) heroSection.style.display = 'none';
         contentRows.classList.remove('-mt-20');
         contentRows.classList.add('mt-24');
 
@@ -1931,7 +1997,8 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         }
 
-        document.getElementById('back-to-browse').onclick = () => {
+        const backBtn = document.getElementById('back-to-browse');
+        if (backBtn) backBtn.onclick = () => {
             updateTabState(currentTab); // Returns to the current row-based view
         };
 
@@ -1982,7 +2049,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             // If we're still on the logo, show some feedback unconditionally after timeout
             if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
                 heroTitle.textContent = 'LIBRARY CONNECTION DELAY';
-                heroDesc.textContent = 'We are having trouble connecting to the title database. Try loading the catalog again.';
+                if (heroDesc) heroDesc.textContent = 'We are having trouble connecting to the title database. Try loading the catalog again.';
                 if (heroSetup) heroSetup.classList.remove('hidden');
             }
         }, 8000);
@@ -2030,20 +2097,25 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 clearTimeout(searchDebounce);
 
                 if (value.length > 0) {
-                    heroSection.style.display = 'none';
-                    contentRows.classList.remove('-mt-20');
-                    contentRows.classList.add('mt-24');
+                    if (heroSection) heroSection.style.display = 'none';
+                    if (contentRows) {
+                        contentRows.classList.remove('-mt-20');
+                        contentRows.classList.add('mt-24');
+                    }
                     searchDebounce = setTimeout(() => handleSearch(value), 500);
                 } else {
-                    heroSection.style.display = 'flex';
-                    contentRows.classList.add('-mt-20');
-                    contentRows.classList.remove('mt-24');
+                    if (heroSection) heroSection.style.display = 'flex';
+                    if (contentRows) {
+                        contentRows.classList.add('-mt-20');
+                        contentRows.classList.remove('mt-24');
+                    }
                     renderLibrary();
                 }
             });
         }
 
         window.addEventListener('scroll', () => {
+            if (!mainNav) return;
             if (window.scrollY > 50) {
                 mainNav.classList.add('bg-netflix-black', 'shadow-2xl', 'py-2');
                 mainNav.classList.remove('bg-transparent', 'py-4');
@@ -2053,9 +2125,11 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             }
         });
 
-        detailModal.addEventListener('click', (e) => {
-            if (e.target === detailModal || e.target.classList.contains('modal-blur')) closeModal();
-        });
+        if (detailModal) {
+            detailModal.addEventListener('click', (e) => {
+                if (e.target === detailModal || (e.target && e.target.classList && e.target.classList.contains('modal-blur'))) closeModal();
+            });
+        }
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {

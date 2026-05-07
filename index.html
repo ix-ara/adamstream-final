@@ -5,6 +5,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AdamStream - Curated Preview Library</title>
+    <link rel="preconnect" href="https://api.themoviedb.org">
+    <link rel="preconnect" href="https://image.tmdb.org">
+    <link rel="preconnect" href="https://api.jikan.moe">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
@@ -52,6 +55,23 @@
             overflow-x: hidden;
             scrollbar-width: thin;
             scrollbar-color: #4f4a3f transparent;
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(circle at 30% 30%, rgba(255, 118, 87, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 70% 70%, rgba(110, 231, 183, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 50% 50%, rgba(255, 118, 87, 0.03) 0%, transparent 50%);
+            z-index: -1;
+            pointer-events: none;
+            animation: mesh-rotate 60s linear infinite;
+            filter: blur(40px);
         }
 
         ::-webkit-scrollbar {
@@ -73,8 +93,9 @@
 
         .hero-gradient {
             background:
-                linear-gradient(88deg, rgba(18, 17, 15, 0.94) 0%, rgba(18, 17, 15, 0.62) 48%, rgba(18, 17, 15, 0.18) 100%),
-                linear-gradient(to top, rgba(18, 17, 15, 1) 0%, rgba(18, 17, 15, 0) 34%);
+                linear-gradient(90deg, #12110f 0%, rgba(18, 17, 15, 0.8) 25%, rgba(18, 17, 15, 0) 50%),
+                linear-gradient(0deg, #12110f 0%, rgba(18, 17, 15, 0) 50%),
+                linear-gradient(180deg, rgba(18, 17, 15, 0.5) 0%, rgba(18, 17, 15, 0) 20%);
         }
 
         .no-scrollbar::-webkit-scrollbar {
@@ -224,17 +245,27 @@
         }
 
         @keyframes mesh-rotate {
-            0% {
-                transform: rotate(0deg) scale(1);
-            }
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
 
-            50% {
-                transform: rotate(180deg) scale(1.1);
-            }
+        @keyframes slideUp {
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
 
-            100% {
-                transform: rotate(360deg) scale(1);
-            }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
         }
 
         /* Global App Loader */
@@ -375,9 +406,10 @@
         }
 
         #main-nav {
-            background: rgba(18, 17, 15, 0.7);
-            border-bottom: 1px solid rgba(244, 239, 229, 0.08);
-            backdrop-filter: blur(18px);
+            background: rgba(10, 10, 10, 0.4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(24px) saturate(180%);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
 
         #nav-logo {
@@ -425,6 +457,7 @@
         }
 
         .movie-card {
+            will-change: transform;
             border-radius: 8px !important;
             box-shadow: 0 16px 35px rgba(0, 0, 0, 0.28);
             outline: 1px solid rgba(248, 243, 232, 0.08);
@@ -520,6 +553,9 @@
             <button id="movies-nav-btn" class="hover:text-white transition-colors shrink-0">Movies</button>
             <button id="popular-nav-btn" class="hover:text-white transition-colors shrink-0">New & Popular</button>
             <button id="mylist-nav-btn" class="hover:text-white transition-colors shrink-0">My List</button>
+            <button id="settings-nav-btn" class="hover:text-white transition-colors shrink-0 flex items-center gap-1">
+                <span class="material-symbols-outlined text-sm">settings</span>
+            </button>
         </div>
 
         <!-- Account -->
@@ -549,7 +585,7 @@
             <div class="absolute inset-0 z-0">
                 <img id="hero-bg"
                     src="https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000&auto=format&fit=crop"
-                    class="w-full h-full object-cover animate-fade-in" alt="Hero">
+                    class="w-full h-full object-cover animate-fade-in" alt="Hero" fetchpriority="high">
                 <div class="absolute inset-0 hero-gradient"></div>
             </div>
             <div id="hero-content-wrap"
@@ -628,6 +664,19 @@
                         <span class="text-netflix-red">4K Ultra HD</span>
                     </div>
                     <p id="modal-desc" class="text-lg text-zinc-200 leading-relaxed"></p>
+
+                    <!-- Episodes Section -->
+                    <div id="episodes-section" class="hidden mt-10 space-y-6">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                            <h4 class="text-xl font-bold uppercase tracking-tighter">Episodes</h4>
+                            <select id="season-select" class="bg-zinc-800 text-white text-sm border border-white/10 rounded-md px-3 py-1 outline-none cursor-pointer font-bold focus:ring-2 focus:ring-netflix-red transition-all">
+                                <!-- Seasons populated by JS -->
+                            </select>
+                        </div>
+                        <div id="episodes-list" class="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                            <!-- Episode cards populated by JS -->
+                        </div>
+                    </div>
 
                 </div>
                 <div class="space-y-4">
