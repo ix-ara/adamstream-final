@@ -223,6 +223,7 @@
                 #080706;
         }
 
+        #streaming-player,
         #player-iframe {
             background: #080706;
         }
@@ -833,8 +834,8 @@
                 </select>
             </div>
             <!-- Sub/Dub Toggle (anime only) -->
-            <button id="btn-sub" class="hidden bg-white text-black text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105">Sub</button>
-            <button id="btn-dub" class="hidden bg-zinc-900/80 text-zinc-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105 border border-white/10">Dub</button>
+            <button id="btn-sub" class="hidden items-center bg-white text-black text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105">Japanese Sub</button>
+            <button id="btn-dub" class="hidden items-center bg-zinc-900/80 text-zinc-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105 border border-white/10">English Dub</button>
             <!-- Next Source (anime) -->
             <button id="btn-next-source" class="hidden items-center gap-1 bg-zinc-800/90 hover:bg-netflix-red text-zinc-300 hover:text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10">
                 <span class="material-symbols-outlined text-sm leading-none">skip_next</span>
@@ -851,9 +852,9 @@
         <div id="player-server-controls"
             class="absolute bottom-8 left-1/2 -translate-x-1/2 z-[310] hidden items-center gap-2 bg-black/70 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
             <span class="text-zinc-500 text-[10px] font-black uppercase tracking-widest mr-1">Server</span>
-            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-netflix-red text-white" data-server="vidlink">VidLink</button>
-            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="vidsrc_cc">VidSrc.cc</button>
-            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="vidsrc_to">VidSrc.to</button>
+            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-netflix-red text-white" data-server="vidsrc_me">Primary</button>
+            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="vidsrc_pro">Backup</button>
+            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="vidlink">VidLink</button>
         </div>
 
         <!-- Active Source Badge (anime) -->
@@ -867,7 +868,7 @@
         <div id="dub-hint"
             class="hidden absolute bottom-24 left-1/2 -translate-x-1/2 z-[310] items-center gap-3 bg-netflix-red/90 px-5 py-3 rounded-xl backdrop-blur-md border border-white/10 text-white text-xs font-bold shadow-2xl">
             <span class="material-symbols-outlined text-sm">volume_up</span>
-            English dub selected — searching GogoAnime &amp; VidLink sources...
+            English dub selected — loading dubbed stream...
         </div>
 
 
@@ -910,9 +911,10 @@
 
             <!-- Real Video Player API -->
             <div class="w-full h-full relative z-0">
-                <iframe id="player-iframe" class="w-full h-full border-0 bg-black relative z-0"
+                <iframe id="streaming-player" class="w-full h-full border-0 bg-black relative z-0"
                     allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen="true"
-                    webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
+                    webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="origin"
+                    title="AdamStream Player"></iframe>
                 <div class="absolute top-28 left-10 z-[309] bg-black/40 px-4 py-2 rounded-md border border-white/20 pointer-events-none transition-opacity duration-300"
                     id="player-title-overlay">
                     <p class="text-xs text-zinc-300 uppercase tracking-[0.2em]">Now previewing</p>
