@@ -396,6 +396,68 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             }
         }
 
+        // If all server-by-id attempts failed, try title-based URL patterns
+        try {
+            const titleFallback = await tryTitleBasedProviders(item, season, episode, playbackToken, loaderTimeout);
+            if (titleFallback) return true;
+        } catch (e) {}
+
+        return false;
+    }
+
+    // Try alternative title-based URL patterns (slug, id-slug) for providers
+    async function tryTitleBasedProviders(item, season, episode, playbackToken, loaderTimeout = 8000) {
+        if (!item || !item.title) return false;
+        const slugify = (str) => String(str || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const titleSlug = slugify(item.title + (item.year ? `-${item.year}` : ''));
+        const tried = [];
+
+        const keys = Object.keys(SERVERS || {});
+        for (const key of keys) {
+            const server = SERVERS[key];
+            if (!server) continue;
+            // candidate forms: slug, id-slug
+            const candidates = [];
+            try {
+                candidates.push(item.isMovie ? server.movie(titleSlug) : server.tv(titleSlug, season || 1, episode || 1));
+            } catch (e) {}
+            try {
+                if (item.tmdb_id) candidates.push(item.isMovie ? server.movie(item.tmdb_id + '-' + titleSlug) : server.tv(item.tmdb_id + '-' + titleSlug, season || 1, episode || 1));
+            } catch (e) {}
+
+            for (const url of candidates) {
+                if (!url) continue;
+                tried.push(url);
+                try {
+                    const host = (new URL(url)).hostname;
+                    if (isHostBlacklisted(host)) continue;
+                } catch (e) {}
+
+                try {
+                    if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+                    await loadIframeUrl(url, loaderTimeout);
+                    // success
+                    currentServer = key;
+                    refreshServerButtons();
+                    if (playerTitle) playerTitle.textContent = `${item.title} - Playing (${SERVERS[key].name})`;
+                    return true;
+                } catch (err) {
+                    try { const host = (new URL(url)).hostname; markHostFailure(host); } catch (e) {}
+                    continue;
+                } finally {
+                    hidePlayerLoader();
+                }
+            }
+        }
+
+        // Log failure for debugging (persist small record)
+        try {
+            const key = 'adamstream_failed_titles';
+            const existing = JSON.parse(localStorage.getItem(key) || '[]');
+            existing.unshift({ title: item.title, tmdb_id: item.tmdb_id || null, tried: tried.slice(0,6), when: Date.now() });
+            localStorage.setItem(key, JSON.stringify(existing.slice(0, 50)));
+        } catch (e) {}
+
         return false;
     }
 
