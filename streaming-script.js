@@ -1319,6 +1319,8 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         const rowTitle = document.createElement('h3');
         rowTitle.className = 'text-lg md:text-xl font-bold text-zinc-100 tracking-tight drop-shadow-md';
         rowTitle.textContent = title;
+        // animated header class for scroll entrance
+        rowTitle.classList.add('row-header');
 
         const viewAllBtn = document.createElement('button');
         viewAllBtn.className = 'text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 group';
@@ -1370,6 +1372,11 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                         scrollContainer.appendChild(fragment);
                     }
                     entry.target.classList.add('visible');
+                    // animate header
+                    try {
+                        const hdr = entry.target.querySelector('h3');
+                        if (hdr) hdr.classList.add('row-header-animate');
+                    } catch (e) {}
                     observer.unobserve(entry.target);
                 }
             });
@@ -1377,6 +1384,44 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         observer.observe(rowWrapper);
         return rowWrapper;
+    }
+
+    // --- Parallax Hero ---
+    function initParallax() {
+        const heroEl = document.getElementById('hero');
+        if (!heroEl) return;
+
+        let lastMove = 0;
+        const limit = 16; // ms
+
+        const onMove = (clientX, clientY) => {
+            const now = Date.now();
+            if (now - lastMove < limit) return;
+            lastMove = now;
+            const rect = heroEl.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const px = (clientX - cx) / rect.width; // -0.5..0.5
+            const py = (clientY - cy) / rect.height;
+
+            const rotateY = px * 8; // degrees
+            const rotateX = -py * 6;
+            const translateBgX = -px * 18; // pixels
+            const translateBgY = -py * 10;
+
+            if (heroContent) heroContent.style.transform = `translateZ(18px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translate(${ -px * 8 }px, ${ -py * 6 }px)`;
+            if (heroBg) heroBg.style.transform = `scale(1.08) translate(${translateBgX}px, ${translateBgY}px)`;
+        };
+
+        const onLeave = () => {
+            if (heroContent) heroContent.style.transform = '';
+            if (heroBg) heroBg.style.transform = 'scale(1.06)';
+        };
+
+        heroEl.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+        heroEl.addEventListener('mouseleave', onLeave);
+        heroEl.addEventListener('touchmove', (e) => { if (e.touches && e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+        heroEl.addEventListener('touchend', onLeave);
     }
 
     function renderLibrary() {
