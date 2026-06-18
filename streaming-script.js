@@ -218,18 +218,64 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             return;
         }
 
-        playerIframe.onerror = () => {
+        // When the iframe errors (for example the external embed returns a 404),
+        // attempt an automatic graceful fallback: first try the official trailer,
+        // then the preview fallback HTML page. This prevents showing raw 404 pages.
+        let handledError = false;
+
+        playerIframe.onerror = async () => {
             if (playbackToken !== currentPlaybackToken) return;
+            if (handledError) return; // avoid retry loops
+            handledError = true;
             hidePlayerLoader();
-            // No automatic switching - users must manually switch servers if needed
+
+            // Try to load an official trailer as a safer fallback
+            try {
+                const trailer = await fetchTrailerUrl(currentPlayingItem);
+                if (trailer) {
+                    playerIframe.onerror = null;
+                    playerIframe.onload = () => { if (playbackToken === currentPlaybackToken) hidePlayerLoader(); };
+                    try { playerIframe.src = trailer; } catch (e) { /* ignore */ }
+                    if (playerTitle) playerTitle.textContent = `${currentPlayingItem?.title || 'Preview'} - Official Preview`;
+                    return;
+                }
+            } catch (e) {
+                console.warn('Trailer fallback attempt failed', e);
+            }
+
+            // Last resort: show internal preview page so user never sees remote 404
+            try {
+                playerIframe.onerror = null;
+                playerIframe.onload = () => { if (playbackToken === currentPlaybackToken) hidePlayerLoader(); };
+                playerIframe.src = buildPreviewFallbackFrame(currentPlayingItem || {});
+                if (playerTitle) playerTitle.textContent = `${currentPlayingItem?.title || 'Preview'} - Preview unavailable`;
+            } catch (e) {
+                console.warn('Preview fallback failed', e);
+                setTimeout(() => {
+                    if (playbackToken === currentPlaybackToken) hidePlayerLoader();
+                }, loaderTimeout);
+            }
         };
+
         playerIframe.onload = () => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
         };
+
         try {
             playerIframe.src = url;
         } catch (e) {
             console.warn('Failed to set iframe src', e);
+            // Try trailer/preview immediately if direct assignment errors
+            (async () => {
+                try {
+                    const trailer = await fetchTrailerUrl(currentPlayingItem);
+                    if (trailer) {
+                        try { playerIframe.src = trailer; } catch (e) { /* ignore */ }
+                        return;
+                    }
+                } catch (err) {}
+                try { playerIframe.src = buildPreviewFallbackFrame(currentPlayingItem || {}); } catch (err) {}
+            })();
             setTimeout(() => {
                 if (playbackToken === currentPlaybackToken) hidePlayerLoader();
             }, loaderTimeout);
