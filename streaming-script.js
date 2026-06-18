@@ -111,6 +111,10 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     let currentPlaybackToken = 0;
     const trailerCache = {};
     const GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
+    // When true the player will prefer official trailers/previews instead of
+    // loading third-party embed players that frequently return "Video Not Found".
+    // Set to false to attempt the original embed servers (may show remote 404s).
+    const PREFER_TRAILER_FOR_PLAY = true;
 
     // Profile states removed
 
@@ -126,6 +130,70 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             tv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
         }
     };
+
+    // Add additional provider templates used by server switcher buttons
+    SERVERS.vidlink = {
+        name: 'VidLink',
+        movie: (id) => `https://player.vidlink.to/embed/movie/${id}`,
+        tv: (id, s, e) => `https://player.vidlink.to/embed/tv/${id}/${s}/${e}`
+    };
+    SERVERS.vidsrc_to = {
+        name: 'VidSrc.to',
+        movie: (id) => `https://vidsrc.to/v2/embed/movie/${id}?autoPlay=true`,
+        tv: (id, s, e) => `https://vidsrc.to/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
+    };
+    SERVERS.vidsrc_me = {
+        name: 'VidSrc.me',
+        movie: (id) => `https://vidsrc.me/v2/embed/movie/${id}?autoPlay=true`,
+        tv: (id, s, e) => `https://vidsrc.me/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
+    };
+    SERVERS.vidsrc_cc = {
+        name: 'VidSrc.cc',
+        movie: (id) => `https://vidsrc.cc/v2/embed/movie/${id}?autoPlay=true`,
+        tv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
+    };
+
+    const SERVER_FAILURES_KEY = 'adamstream_server_failures';
+    const SERVER_BLACKLIST_KEY = 'adamstream_server_blacklist';
+    const SERVER_BLACKLIST_TTL = 1000 * 60 * 60 * 6; // 6 hours
+    const MAX_FAILURES_BEFORE_BLACKLIST = 2;
+
+    function loadServerFailures() {
+        try { return JSON.parse(localStorage.getItem(SERVER_FAILURES_KEY) || '{}'); } catch (e) { return {}; }
+    }
+
+    function saveServerFailures(obj) { try { localStorage.setItem(SERVER_FAILURES_KEY, JSON.stringify(obj)); } catch (e) {} }
+
+    function loadServerBlacklist() {
+        try { return JSON.parse(localStorage.getItem(SERVER_BLACKLIST_KEY) || '{}'); } catch (e) { return {}; }
+    }
+
+    function saveServerBlacklist(obj) { try { localStorage.setItem(SERVER_BLACKLIST_KEY, JSON.stringify(obj)); } catch (e) {} }
+
+    function markHostFailure(host) {
+        const failures = loadServerFailures();
+        failures[host] = (failures[host] || 0) + 1;
+        saveServerFailures(failures);
+        if (failures[host] >= MAX_FAILURES_BEFORE_BLACKLIST) {
+            const bl = loadServerBlacklist();
+            bl[host] = Date.now() + SERVER_BLACKLIST_TTL;
+            saveServerBlacklist(bl);
+            // clear failure count to avoid re-blacklisting later
+            delete failures[host];
+            saveServerFailures(failures);
+        }
+    }
+
+    function isHostBlacklisted(host) {
+        const bl = loadServerBlacklist();
+        if (!bl[host]) return false;
+        if (Date.now() > bl[host]) {
+            delete bl[host];
+            saveServerBlacklist(bl);
+            return false;
+        }
+        return true;
+    }
 
     // ─── SERVERS ───────────────────────────────────────────────────────────────────
 
@@ -284,6 +352,68 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         setTimeout(() => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
         }, loaderTimeout);
+    }
+
+    // Attempt to load a URL into the iframe and resolve on load/reject on error or timeout.
+    function loadIframeUrl(url, timeoutMs = 8000) {
+        return new Promise((resolve, reject) => {
+            if (!playerIframe) return reject(new Error('No iframe'));
+            let settled = false;
+            const onLoad = () => { if (settled) return; settled = true; cleanup(); resolve(true); };
+            const onError = () => { if (settled) return; settled = true; cleanup(); reject(new Error('iframe error')); };
+            const onTimeout = () => { if (settled) return; settled = true; cleanup(); reject(new Error('timeout')); };
+
+            function cleanup() {
+                playerIframe.removeEventListener('load', onLoad);
+                playerIframe.removeEventListener('error', onError);
+                clearTimeout(timer);
+            }
+
+            playerIframe.addEventListener('load', onLoad);
+            playerIframe.addEventListener('error', onError);
+            try { playerIframe.src = url; } catch (e) { cleanup(); return reject(e); }
+            const timer = setTimeout(onTimeout, timeoutMs);
+        });
+    }
+
+    async function tryStreamWithServers(item, season, episode, playbackToken, loaderTimeout = 8000) {
+        if (!item || !item.tmdb_id) return false;
+        const allServers = Object.keys(SERVERS || {});
+        const queue = getServerQueue(currentServer).concat(allServers.filter(s => !getServerQueue(currentServer).includes(s)));
+
+        for (const key of queue) {
+            const server = SERVERS[key];
+            if (!server) continue;
+            // build url
+            const url = item.isMovie ? server.movie(item.tmdb_id) : server.tv(item.tmdb_id, season || 1, episode || 1);
+            try {
+                const host = (new URL(url)).hostname;
+                if (isHostBlacklisted(host)) continue;
+            } catch (e) {}
+
+            try {
+                // show loader
+                if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+                await loadIframeUrl(url, loaderTimeout);
+                // success
+                if (playerTitle) {
+                    if (item.isMovie) playerTitle.textContent = `${item.title} - Playing`;
+                    else playerTitle.textContent = `${item.title} - S${season} E${episode}`;
+                }
+                // update currentServer to the successful one
+                currentServer = key;
+                refreshServerButtons();
+                return true;
+            } catch (err) {
+                // record failure and try next
+                try { const host = (new URL(url)).hostname; markHostFailure(host); } catch (e) {}
+                continue;
+            } finally {
+                hidePlayerLoader();
+            }
+        }
+
+        return false;
     }
 
     async function fetchTrailerUrl(item) {
@@ -1151,6 +1281,21 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
         currentPlayingItem = item;
 
+        // Prefer trailers/previews to avoid remote 404 pages from unreliable embeds.
+        // If `PREFER_TRAILER_FOR_PLAY` is false, fallback to original server embeds.
+        if (PREFER_TRAILER_FOR_PLAY) {
+            const trailerUrl = await fetchTrailerUrl(item);
+            if (playbackToken !== currentPlaybackToken) return;
+            if (trailerUrl) {
+                setPlayerControlsMode('preview');
+                setPlayerFrameUrl(trailerUrl, playbackToken, 5000);
+                if (playerTitle) playerTitle.textContent = `${item.title} - Official Preview`;
+                schedulePlayerHelp(item, playbackToken);
+                return;
+            }
+            // if no trailer, fallthrough to original stream behavior below
+        }
+
         setPlayerControlsMode('stream');
         if (item.isMovie) {
             if (playerSeasonSelect) playerSeasonSelect.classList.add('hidden');
@@ -1167,21 +1312,22 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             episode = selectedEpisode;
         }
 
-        const streamUrl = item.tmdb_id ? getServerUrl(item, season, episode) : null;
-        if (streamUrl) {
-            setPlayerFrameUrl(streamUrl, playbackToken);
-            if (playerTitle) {
-                if (item.isMovie) {
-                    playerTitle.textContent = `${item.title} - Playing`;
-                } else {
-                    playerTitle.textContent = `${item.title} - S${season} E${episode}`;
-                }
+        const canStream = !!(item.tmdb_id);
+        if (canStream) {
+            // try cycling servers (this will update currentServer on success)
+            const success = await tryStreamWithServers(item, season, episode, playbackToken, 9000);
+            if (playbackToken !== currentPlaybackToken) return;
+            if (!success) {
+                // fallback to trailer / preview if all servers failed
+                const trailerUrl = await fetchTrailerUrl(item);
+                if (playbackToken !== currentPlaybackToken) return;
+                setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
+                if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
             }
             schedulePlayerHelp(item, playbackToken);
         } else {
             const trailerUrl = await fetchTrailerUrl(item);
             if (playbackToken !== currentPlaybackToken) return;
-
             setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
             if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
         }
