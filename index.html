@@ -833,18 +833,10 @@
                     class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
                 </select>
             </div>
-            <!-- Sub/Dub Toggle (anime only) -->
-            <button id="btn-sub" class="hidden items-center bg-white text-black text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105">Japanese Sub</button>
-            <button id="btn-dub" class="hidden items-center bg-zinc-900/80 text-zinc-300 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all hover:scale-105 border border-white/10">English Dub</button>
             <!-- Next Source (anime) -->
             <button id="btn-next-source" class="hidden items-center gap-1 bg-zinc-800/90 hover:bg-netflix-red text-zinc-300 hover:text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10">
                 <span class="material-symbols-outlined text-sm leading-none">skip_next</span>
                 <span class="hidden sm:inline">Next Source</span>
-            </button>
-            <!-- Trailer Fallback -->
-            <button id="player-trailer-btn" class="hidden items-center gap-1 bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10">
-                <span class="material-symbols-outlined text-sm leading-none">movie</span>
-                <span class="hidden sm:inline">Trailer</span>
             </button>
         </div>
 
@@ -854,7 +846,6 @@
             <span class="text-zinc-500 text-[10px] font-black uppercase tracking-widest mr-1">Server</span>
             <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-netflix-red text-white" data-server="vidsrc_me">Primary</button>
             <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="vidsrc_pro">Backup</button>
-            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="vidlink">VidLink</button>
         </div>
 
         <!-- Active Source Badge (anime) -->
@@ -910,7 +901,14 @@
             </div>
 
             <!-- Real Video Player API -->
-            <div class="w-full h-full relative z-0">
+            <div id="player-container" class="w-full h-full relative z-0">
+                <!-- Anime Sub/Dub Toggle Component (State Manager) -->
+                <div id="anime-toggle-container"
+                    class="absolute top-10 right-10 z-[310] hidden items-center gap-2 bg-black/60 px-2 py-1.5 rounded-full backdrop-blur-md border border-white/10">
+                    <button id="btn-sub" class="hidden items-center bg-white text-black text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105">Japanese Sub</button>
+                    <button id="btn-dub" class="hidden items-center bg-zinc-900/80 text-zinc-300 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 border border-white/10">English Dub</button>
+                </div>
+
                 <iframe id="streaming-player" class="w-full h-full border-0 bg-black relative z-0"
                     allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen="true"
                     webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="origin"

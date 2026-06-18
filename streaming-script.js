@@ -106,7 +106,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     let currentSeasonsItemId = null;
     let featuredPool = [];
     let currentServer = 'vidsrc_me';
-    const SERVER_PRIORITY = ['vidsrc_me', 'vidsrc_pro', 'vidlink'];
+    const SERVER_PRIORITY = ['vidsrc_me', 'vidsrc_pro'];
     let fallbackServerIndex = 0;
     let playerHelpTimer = null;
     let currentPlaybackToken = 0;
@@ -122,37 +122,19 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const SERVERS = {
         vidsrc_me: {
             name: 'VidSrc Primary',
-            movie: (id) => `https://v2.vidsrc.me/embed/movie/${id}?autoplay=1`,
-            tv: (id, s, e) => `https://v2.vidsrc.me/embed/tv/${id}/${s}-${e}?autoplay=1`,
-            anime: (id, s, e, dub) => {
-                const base = `https://v2.vidsrc.me/embed/tv/${id}/${s}-${e}?autoplay=1`;
-                return dub ? `${base}&ds=eng&dub=true` : `${base}&ds=jp`;
-            }
+            movie: (id) => `https://v2.vidsrc.me/embed/movie/${id}`,
+            tv: (id, s, e) => `https://v2.vidsrc.me/embed/tv/${id}/${s}/${e}`,
         },
         vidsrc_pro: {
             name: 'VidSrc Backup',
-            movie: (id) => `https://vidsrc.pro/embed/movie/${id}?autoplay=1`,
-            tv: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}-${e}?autoplay=1`,
-            anime: (id, s, e, dub) => {
-                const base = `https://vidsrc.pro/embed/tv/${id}/${s}-${e}?autoplay=1`;
-                return dub ? `${base}&ds=eng&dub=true` : `${base}&ds=jp`;
-            }
-        },
-        vidlink: {
-            name: 'VidLink',
-            movie: (id) => `https://player.vidlink.to/embed/movie/${id}?autoplay=1`,
-            tv: (id, s, e) => `https://player.vidlink.to/embed/tv/${id}/${s}/${e}?autoplay=1`,
-            anime: (id, s, e, dub) => {
-                const base = `https://player.vidlink.to/embed/tv/${id}/${s}/${e}?autoplay=1`;
-                return dub ? `${base}&dub=true` : `${base}&sub=true`;
-            }
+            movie: (id) => `https://vidsrc.pro/embed/movie/${id}`,
+            tv: (id, s, e) => `https://vidsrc.pro/embed/tv/${id}/${s}/${e}`,
         }
     };
 
     let animeDubMode = false;
     let currentAnimeSourceIdx = 0;
     let animeSourceFailCount = 0;
-    const ANIME_SOURCE_KEYS = ['vidsrc_me', 'vidsrc_pro', 'vidlink'];
 
     function updateAnimeToggleButtons() {
         if (!btnSub || !btnDub) return;
@@ -164,14 +146,19 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         btnDub.classList.toggle('text-black', animeDubMode);
         btnDub.classList.toggle('bg-zinc-900/80', !animeDubMode);
         btnDub.classList.toggle('text-zinc-300', !animeDubMode);
-        const sourceKey = ANIME_SOURCE_KEYS[currentAnimeSourceIdx % ANIME_SOURCE_KEYS.length];
         if (playerSourceName) {
             const modeLabel = animeDubMode ? 'English Dub' : 'Japanese Sub';
-            playerSourceName.textContent = `${modeLabel} • ${SERVERS[sourceKey]?.name || 'Switching...'}`;
+            const providerLabel = animeDubMode ? 'VidLink' : 'VidSrc Primary';
+            playerSourceName.textContent = `${modeLabel} • ${providerLabel}`;
         }
     }
 
     function setAnimePlayerUiVisible(show) {
+        const animeToggleContainer = document.getElementById('anime-toggle-container');
+        if (animeToggleContainer) {
+            animeToggleContainer.classList.toggle('hidden', !show);
+            animeToggleContainer.classList.toggle('flex', show);
+        }
         if (btnSub) {
             btnSub.classList.toggle('hidden', !show);
             btnSub.classList.toggle('flex', show);
@@ -181,8 +168,8 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             btnDub.classList.toggle('flex', show);
         }
         if (btnNextSource) {
-            btnNextSource.classList.toggle('hidden', !show);
-            btnNextSource.classList.toggle('flex', show);
+            btnNextSource.classList.add('hidden');
+            btnNextSource.classList.remove('flex');
         }
         if (playerSourceBadge) {
             playerSourceBadge.classList.toggle('hidden', !show);
@@ -194,16 +181,16 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         }
     }
 
-    function getAnimeEmbedUrl(item, season, episode, dub = false, serverKey) {
+    function getAnimeEmbedUrl(item, season, episode, dub = false) {
         const id = item.tmdb_id || item.mal_id || item.id;
         if (!id) return null;
         const s = Number(season) || 1;
         const e = Number(episode) || 1;
-        const key = serverKey || ANIME_SOURCE_KEYS[currentAnimeSourceIdx % ANIME_SOURCE_KEYS.length];
-        const server = SERVERS[key];
-        if (!server) return null;
-        if (typeof server.anime === 'function') return server.anime(id, s, e, dub);
-        return server.tv(id, s, e);
+        if (dub) {
+            return `https://vidlink.org/embed/anime/${id}?episode=${e}&dub=true`;
+        } else {
+            return `https://v2.vidsrc.me/embed/anime/${id}/${s}/${e}`;
+        }
     }
 
     const SERVER_FAILURES_KEY = 'adamstream_server_failures';
@@ -292,6 +279,39 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         });
     }
 
+    function getCurrentPlaybackPosition() {
+        const season = playerSeasonSelect ? Number(playerSeasonSelect.value) || 1 : 1;
+        const episode = playerEpisodeSelect ? Number(playerEpisodeSelect.value) || 1 : 1;
+        return { season, episode };
+    }
+
+    function showPlayerError() {
+        const playerContainer = document.getElementById('player-container');
+        if (!playerContainer) return;
+        
+        clearPlayerError();
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'player-error-overlay';
+        errorDiv.className = 'absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-center p-6 text-zinc-300 z-[309]';
+        errorDiv.innerHTML = `
+            <div class="max-w-md">
+                <span class="material-symbols-outlined text-netflix-red text-6xl mb-4">error</span>
+                <p class="text-xl font-bold text-white mb-3">Server error or connection blocked.</p>
+                <p class="text-sm text-zinc-400">Please click an alternative server or language switch option above.</p>
+            </div>
+        `;
+        playerContainer.appendChild(errorDiv);
+        hidePlayerLoader();
+    }
+
+    function clearPlayerError() {
+        const errorDiv = document.getElementById('player-error-overlay');
+        if (errorDiv) {
+            errorDiv.remove();
+        }
+    }
+
     function getItemPlaybackKey(item) {
         if (!item) return '';
         const type = item.isMovie ? 'movie' : 'tv';
@@ -312,10 +332,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             playerServerControls.classList.toggle('hidden', mode !== 'stream');
             playerServerControls.classList.toggle('flex', mode === 'stream');
         }
-        if (playerTrailerBtn) {
-            playerTrailerBtn.classList.toggle('hidden', mode !== 'stream');
-            playerTrailerBtn.classList.toggle('flex', mode === 'stream');
-        }
+
         if (playerTitleLabel) playerTitleLabel.textContent = mode === 'preview' ? 'Preview' : 'Episode';
     }
 
@@ -334,62 +351,13 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         playerIframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
     }
 
-    function setPlayerFrameUrl(url, playbackToken, loaderTimeout = 7000) {
-        const loaderText = document.getElementById('player-loader-text');
-        if (loaderText) loaderText.textContent = 'Optimizing Stream...';
-
-        if (!playerIframe) {
-            setTimeout(() => {
-                if (playbackToken === currentPlaybackToken) hidePlayerLoader();
-            }, loaderTimeout);
-            return;
-        }
-
-        configureStreamingIframe();
-
-        let handledError = false;
-        playerIframe.onerror = async () => {
-            if (playbackToken !== currentPlaybackToken || handledError) return;
-            handledError = true;
-            hidePlayerLoader();
-            try {
-                const trailer = await fetchTrailerUrl(currentPlayingItem);
-                if (trailer) {
-                    playerIframe.onerror = null;
-                    playerIframe.onload = () => { if (playbackToken === currentPlaybackToken) hidePlayerLoader(); };
-                    playerIframe.src = trailer;
-                    if (playerTitle) playerTitle.textContent = `${currentPlayingItem?.title || 'Preview'} - Official Preview`;
-                    return;
-                }
-            } catch (e) {}
-            try {
-                playerIframe.onerror = null;
-                playerIframe.src = buildPreviewFallbackFrame(currentPlayingItem || {});
-            } catch (e) {}
-        };
-
-        playerIframe.onload = () => {
-            if (playbackToken === currentPlaybackToken) hidePlayerLoader();
-        };
-
-        try {
-            playerIframe.removeAttribute('srcdoc');
-            playerIframe.src = url;
-        } catch (e) {
-            console.warn('Failed to set iframe src', e);
-        }
-
-        setTimeout(() => {
-            if (playbackToken === currentPlaybackToken) hidePlayerLoader();
-        }, loaderTimeout + 400);
-    }
-
     // Attempt to load a URL into the iframe and resolve on load/reject on error or timeout.
     function loadIframeUrl(url, timeoutMs = 8000) {
         return new Promise((resolve, reject) => {
             if (!playerIframe) return reject(new Error('No iframe'));
             configureStreamingIframe();
             let settled = false;
+
             const onLoad = () => { if (settled) return; settled = true; cleanup(); resolve(true); };
             const onError = () => { if (settled) return; settled = true; cleanup(); reject(new Error('iframe error')); };
             const onTimeout = () => { if (settled) return; settled = true; cleanup(); reject(new Error('timeout')); };
@@ -403,6 +371,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             playerIframe.addEventListener('load', onLoad);
             playerIframe.addEventListener('error', onError);
             try {
+                clearPlayerError();
                 playerIframe.removeAttribute('srcdoc');
                 playerIframe.src = url;
             } catch (e) {
@@ -415,38 +384,23 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
 
     async function tryAnimeStreamWithServers(item, season, episode, playbackToken, loaderTimeout = 9000) {
         if (!item) return false;
-        const queue = [
-            ANIME_SOURCE_KEYS[currentAnimeSourceIdx],
-            ...ANIME_SOURCE_KEYS.filter((key, idx) => idx !== currentAnimeSourceIdx)
-        ];
+        const url = getAnimeEmbedUrl(item, season, episode, animeDubMode);
+        if (!url) return false;
 
-        for (const key of queue) {
-            const url = getAnimeEmbedUrl(item, season, episode, animeDubMode, key);
-            if (!url) continue;
-            try {
-                const host = (new URL(url)).hostname;
-                if (isHostBlacklisted(host)) continue;
-            } catch (e) {}
-
-            try {
-                if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
-                await loadIframeUrl(url, loaderTimeout);
-                currentAnimeSourceIdx = ANIME_SOURCE_KEYS.indexOf(key);
-                updateAnimeToggleButtons();
-                if (playerTitle) {
-                    playerTitle.textContent = `${item.title} - S${season} E${episode} (${animeDubMode ? 'Dub' : 'Sub'})`;
-                }
-                return true;
-            } catch (err) {
-                try {
-                    const host = (new URL(url)).hostname;
-                    markHostFailure(host);
-                } catch (e) {}
-            } finally {
-                hidePlayerLoader();
+        try {
+            if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+            await loadIframeUrl(url, loaderTimeout);
+            updateAnimeToggleButtons();
+            if (playerTitle) {
+                playerTitle.textContent = `${item.title} - S${season} E${episode} (${animeDubMode ? 'Dub' : 'Sub'})`;
             }
+            return true;
+        } catch (err) {
+            console.warn('Anime streaming failed:', err);
+            return false;
+        } finally {
+            hidePlayerLoader();
         }
-        return false;
     }
 
     async function tryStreamWithServers(item, season, episode, playbackToken, loaderTimeout = 8000) {
@@ -551,106 +505,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         return false;
     }
 
-    async function fetchTrailerUrl(item) {
-        if (!item) return null;
-        const key = getItemPlaybackKey(item);
-        if (trailerCache[key] !== undefined) return trailerCache[key];
 
-        if (item.trailerEmbedUrl) {
-            trailerCache[key] = item.trailerEmbedUrl;
-            return trailerCache[key];
-        }
-
-        if (!item.tmdb_id) {
-            trailerCache[key] = null;
-            return null;
-        }
-
-        const mediaType = item.isMovie ? 'movie' : 'tv';
-        const data = await fetchTMDB(`/${mediaType}/${item.tmdb_id}/videos`, 6000);
-        const videos = (data?.results || []).filter(video => video.site === 'YouTube' && video.key);
-        const trailer = videos.find(video => video.type === 'Trailer' && video.official) ||
-            videos.find(video => video.type === 'Trailer') ||
-            videos.find(video => video.type === 'Teaser') ||
-            videos[0];
-
-        trailerCache[key] = trailer ? `https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&rel=0` : null;
-        return trailerCache[key];
-    }
-
-    function escapeHtml(value) {
-        return String(value || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function buildPreviewFallbackFrame(item) {
-        const title = escapeHtml(item?.title || 'Preview unavailable');
-        const poster = escapeHtml(item?.backdrop || item?.poster || ANIME_PLACEHOLDER_BACKDROP);
-        const html = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-html,body{margin:0;height:100%;background:#12110f;color:#f8f3e8;font-family:Inter,Arial,sans-serif;overflow:hidden}
-.wrap{position:relative;display:grid;place-items:center;height:100%;isolation:isolate;text-align:center;padding:32px}
-.bg{position:absolute;inset:0;background:linear-gradient(90deg,rgba(18,17,15,.98),rgba(18,17,15,.76),rgba(18,17,15,.48)),url("${poster}") center/cover no-repeat;filter:saturate(.85);z-index:-2}
-.shade{position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,rgba(255,118,87,.18),transparent 34%),linear-gradient(to top,#12110f,transparent 52%);z-index:-1}
-.panel{max-width:620px}
-.mark{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:16px;background:#ff7657;color:#12110f;font-size:28px;font-weight:900;margin-bottom:22px;box-shadow:0 22px 60px rgba(255,118,87,.25)}
-h1{font-size:clamp(32px,5vw,64px);line-height:.95;letter-spacing:-.04em;margin:0 0 14px;font-weight:900}
-p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
-.tag{margin-top:24px;display:inline-block;border:1px solid rgba(248,243,232,.18);border-radius:999px;padding:10px 14px;color:#f8f3e8;background:rgba(248,243,232,.07);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
-</style>
-</head>
-<body>
-<main class="wrap">
-<div class="bg"></div><div class="shade"></div>
-<section class="panel">
-<div class="mark">i</div>
-<h1>${title}</h1>
-<p>An official preview is not available for this title right now. The broken third-party players were removed so AdamStream does not send you into 404 pages.</p>
-<div class="tag">Premium catalog view</div>
-</section>
-</main>
-</body>
-</html>`;
-        return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-    }
-
-    async function playTrailerFallback(item = currentPlayingItem) {
-        if (!item) return;
-        currentPlaybackToken += 1;
-        clearTimeout(playerHelpTimer);
-        if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
-        const trailerUrl = await fetchTrailerUrl(item);
-
-        setPlayerControlsMode('preview');
-
-        if (playerIframe) {
-            playerIframe.onerror = null;
-            playerIframe.onload = hidePlayerLoader;
-            try {
-                playerIframe.src = trailerUrl || buildPreviewFallbackFrame(item);
-            } catch (e) {
-                console.warn('Failed to set iframe src for trailer fallback', e);
-            }
-        } else {
-            // If no iframe, ensure loader is hidden eventually
-            setTimeout(() => {
-                if (currentPlaybackToken) hidePlayerLoader();
-            }, 1500);
-        }
-
-        if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
-        if (videoOverlay) videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
-        if (playerTitleOverlay) playerTitleOverlay.classList.remove('opacity-0');
-        document.body.style.overflow = 'hidden';
-    }
 
     function schedulePlayerHelp(item, token) {
         clearTimeout(playerHelpTimer);
@@ -1457,6 +1312,10 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (!item) return;
         const playbackToken = ++currentPlaybackToken;
         clearTimeout(playerHelpTimer);
+        clearPlayerError();
+        if (playerIframe) {
+            playerIframe.onerror = null;
+        }
         if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
         if (videoOverlay) videoOverlay.classList.remove('opacity-0', 'pointer-events-none');
         document.body.style.overflow = 'hidden';
@@ -1467,19 +1326,6 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         setAnimePlayerUiVisible(!!item.isAnime);
         if (item.isAnime) {
             updateAnimeToggleButtons();
-        }
-
-        if (PREFER_TRAILER_FOR_PLAY) {
-            const trailerUrl = await fetchTrailerUrl(item);
-            if (playbackToken !== currentPlaybackToken) return;
-            if (trailerUrl) {
-                setPlayerControlsMode('preview');
-                setPlayerFrameUrl(trailerUrl, playbackToken, 5000);
-                if (playerTitle) playerTitle.textContent = `${item.title} - Official Preview`;
-                schedulePlayerHelp(item, playbackToken);
-                return;
-            }
-            // if no trailer, fallthrough to original stream behavior below
         }
 
         setPlayerControlsMode('stream');
@@ -1502,9 +1348,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             const success = await tryAnimeStreamWithServers(item, season, episode, playbackToken, 9000);
             if (playbackToken !== currentPlaybackToken) return;
             if (!success) {
-                const trailerUrl = await fetchTrailerUrl(item);
-                setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
-                if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
+                showPlayerError();
+            } else {
+                playerIframe.onerror = showPlayerError;
             }
             schedulePlayerHelp(item, playbackToken);
             setTimeout(() => {
@@ -1535,18 +1381,13 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             const success = await tryStreamWithServers(item, season, episode, playbackToken, 9000);
             if (playbackToken !== currentPlaybackToken) return;
             if (!success) {
-                // fallback to trailer / preview if all servers failed
-                const trailerUrl = await fetchTrailerUrl(item);
-                if (playbackToken !== currentPlaybackToken) return;
-                setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
-                if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
+                showPlayerError();
+            } else {
+                playerIframe.onerror = showPlayerError;
             }
             schedulePlayerHelp(item, playbackToken);
         } else {
-            const trailerUrl = await fetchTrailerUrl(item);
-            if (playbackToken !== currentPlaybackToken) return;
-            setPlayerFrameUrl(trailerUrl || buildPreviewFallbackFrame(item), playbackToken, 1800);
-            if (playerTitle) playerTitle.textContent = `${item.title} - ${trailerUrl ? 'Official Preview' : 'Preview unavailable'}`;
+            showPlayerError();
         }
 
         setTimeout(() => {
@@ -1557,6 +1398,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
     function exitPlayer() {
         currentPlaybackToken += 1;
         clearTimeout(playerHelpTimer);
+        clearPlayerError();
         if (playerIframe) {
             try { playerIframe.src = ''; } catch (e) { /* ignore */ }
         }
@@ -1606,12 +1448,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     if (btnNextSource) {
         btnNextSource.addEventListener('click', () => {
-            if (!currentPlayingItem?.isAnime) return;
-            currentAnimeSourceIdx = (currentAnimeSourceIdx + 1) % ANIME_SOURCE_KEYS.length;
-            animeSourceFailCount = 0;
-            updateAnimeToggleButtons();
-            const position = getCurrentPlaybackPosition();
-            playMedia(currentPlayingItem, position.season, position.episode);
+            // Deprecated under the single provider per sub/dub state design
         });
     }
 
@@ -1633,16 +1470,24 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                     const tryUrl = currentPlayingItem.isMovie ? server.movie(currentPlayingItem.tmdb_id) : server.tv(currentPlayingItem.tmdb_id, position.season || 1, position.episode || 1);
                     try {
                         if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+                        playerIframe.onerror = null;
                         await loadIframeUrl(tryUrl, 9000);
                         // success: update currentServer and display
                         currentServer = serverKey;
                         refreshServerButtons();
                         if (playerTitle) playerTitle.textContent = `${currentPlayingItem.title} - Playing (${SERVERS[serverKey].name})`;
+                        playerIframe.onerror = showPlayerError;
                         return;
                     } catch (err) {
                         // on fail, mark host failure and try cycling through other servers
                         try { const host = (new URL(tryUrl)).hostname; markHostFailure(host); } catch (e) {}
-                        await tryStreamWithServers(currentPlayingItem, position.season, position.episode, currentPlaybackToken, 9000);
+                        playerIframe.onerror = null;
+                        const success = await tryStreamWithServers(currentPlayingItem, position.season, position.episode, currentPlaybackToken, 9000);
+                        if (!success) {
+                            showPlayerError();
+                        } else {
+                            playerIframe.onerror = showPlayerError;
+                        }
                     } finally {
                         hidePlayerLoader();
                     }
@@ -2152,13 +1997,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             };
         }
 
-        if (playerTrailerBtn) {
-            playerTrailerBtn.onclick = () => {
-                if (currentPlayingItem) {
-                    playTrailerFallback(currentPlayingItem);
-                }
-            };
-        }
+
 
         if (homeBtn) homeBtn.onclick = goHome;
         if (document.getElementById('kdrama-nav-btn')) document.getElementById('kdrama-nav-btn').onclick = goKDrama;
