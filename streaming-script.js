@@ -104,8 +104,8 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     let currentTvSeasons = [];
     let currentSeasonsItemId = null;
     let featuredPool = [];
-    let currentServer = 'alpha'; // Default to the broadest TMDB-backed source
-    const SERVER_PRIORITY = ['alpha', 'delta']; // Only 2 working servers
+    let currentServer = 'vidlink'; // default preferred server
+    const SERVER_PRIORITY = ['vidlink', 'vidsrc_cc', 'vidsrc_to']; // 3 preferred servers in order
     let fallbackServerIndex = 0;
     let playerHelpTimer = null;
     let currentPlaybackToken = 0;
@@ -119,38 +119,21 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     // Profile states removed
 
     const SERVERS = {
-        alpha: {
-            name: 'Alpha',
-            movie: (id) => `https://player.vidsrc.co/embed/movie/${id}`,
-            tv: (id, s, e) => `https://player.vidsrc.co/embed/tv/${id}/${s}/${e}`
+        vidlink: {
+            name: 'VidLink',
+            movie: (id) => `https://player.vidlink.to/embed/movie/${id}`,
+            tv: (id, s, e) => `https://player.vidlink.to/embed/tv/${id}/${s}/${e}`
         },
-        delta: {
-            name: 'Delta',
+        vidsrc_cc: {
+            name: 'VidSrc.cc',
             movie: (id) => `https://vidsrc.cc/v2/embed/movie/${id}?autoPlay=true`,
             tv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
+        },
+        vidsrc_to: {
+            name: 'VidSrc.to',
+            movie: (id) => `https://vidsrc.to/v2/embed/movie/${id}?autoPlay=true`,
+            tv: (id, s, e) => `https://vidsrc.to/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
         }
-    };
-
-    // Add additional provider templates used by server switcher buttons
-    SERVERS.vidlink = {
-        name: 'VidLink',
-        movie: (id) => `https://player.vidlink.to/embed/movie/${id}`,
-        tv: (id, s, e) => `https://player.vidlink.to/embed/tv/${id}/${s}/${e}`
-    };
-    SERVERS.vidsrc_to = {
-        name: 'VidSrc.to',
-        movie: (id) => `https://vidsrc.to/v2/embed/movie/${id}?autoPlay=true`,
-        tv: (id, s, e) => `https://vidsrc.to/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
-    };
-    SERVERS.vidsrc_me = {
-        name: 'VidSrc.me',
-        movie: (id) => `https://vidsrc.me/v2/embed/movie/${id}?autoPlay=true`,
-        tv: (id, s, e) => `https://vidsrc.me/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
-    };
-    SERVERS.vidsrc_cc = {
-        name: 'VidSrc.cc',
-        movie: (id) => `https://vidsrc.cc/v2/embed/movie/${id}?autoPlay=true`,
-        tv: (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?autoPlay=true`
     };
 
     const SERVER_FAILURES_KEY = 'adamstream_server_failures';
@@ -1413,15 +1396,36 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     // Server Switcher Listeners
     document.querySelectorAll('.server-btn').forEach(btn => {
-        btn.onclick = (e) => {
-            const serverKey = e.target.getAttribute('data-server');
+        btn.onclick = async (e) => {
+            const serverKey = e.currentTarget.getAttribute('data-server');
             if (!serverKey) return;
+            // set the server preference immediately
             currentServer = serverKey;
             refreshServerButtons();
 
+            // If something is playing, try to switch to the selected provider immediately
             if (currentPlayingItem) {
                 const position = getCurrentPlaybackPosition();
-                playMedia(currentPlayingItem, position.season, position.episode);
+                // attempt to load the selected server first, then fallback to others
+                const server = SERVERS[serverKey];
+                if (server) {
+                    const tryUrl = currentPlayingItem.isMovie ? server.movie(currentPlayingItem.tmdb_id) : server.tv(currentPlayingItem.tmdb_id, position.season || 1, position.episode || 1);
+                    try {
+                        if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+                        await loadIframeUrl(tryUrl, 9000);
+                        // success: update currentServer and display
+                        currentServer = serverKey;
+                        refreshServerButtons();
+                        if (playerTitle) playerTitle.textContent = `${currentPlayingItem.title} - Playing (${SERVERS[serverKey].name})`;
+                        return;
+                    } catch (err) {
+                        // on fail, mark host failure and try cycling through other servers
+                        try { const host = (new URL(tryUrl)).hostname; markHostFailure(host); } catch (e) {}
+                        await tryStreamWithServers(currentPlayingItem, position.season, position.episode, currentPlaybackToken, 9000);
+                    } finally {
+                        hidePlayerLoader();
+                    }
+                }
             }
         };
     });
