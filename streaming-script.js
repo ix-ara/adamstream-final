@@ -113,8 +113,8 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
     // When true the player will prefer official trailers/previews instead of
     // loading third-party embed players that frequently return "Video Not Found".
-    // Set to false to attempt the original embed servers (may show remote 404s).
-    const PREFER_TRAILER_FOR_PLAY = true;
+    // We default to false so the app will attempt real streaming providers first.
+    const PREFER_TRAILER_FOR_PLAY = false;
 
     // Profile states removed
 
@@ -983,6 +983,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             'home': homeBtn,
             'tv': document.getElementById('tv-nav-btn'),
             'kdrama': document.getElementById('kdrama-nav-btn'),
+            'anime': document.getElementById('anime-nav-btn'),
             'movies': document.getElementById('movies-nav-btn'),
             'popular': document.getElementById('popular-nav-btn'),
             'mylist': document.getElementById('mylist-nav-btn')
@@ -1044,6 +1045,13 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (!searchInput) return;
         searchInput.value = '';
         updateTabState('tv');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goAnime() {
+        if (!searchInput) return;
+        searchInput.value = '';
+        updateTabState('anime');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1764,6 +1772,17 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 "Romantic Korean Classics": libraryData.romanceKDrama,
                 "Must-Watch K-Dramas": libraryData.kdrama.slice().sort(() => Math.random() - 0.5)
             };
+        } else if (currentTab === 'anime') {
+            // build anime list from fetched tv/movie pools
+            const animePool = [];
+            ['tv','popular','binge','movies'].forEach(k => {
+                (libraryData[k] || []).forEach(it => { if (it && it.isAnime) animePool.push(it); });
+            });
+            categories = {
+                "Trending Anime": animePool,
+                "Action Anime": animePool.filter(a => a.title && a.title.toLowerCase().includes('action')).slice(0, 20),
+                "Must-Watch Anime": animePool.slice().sort(() => Math.random() - 0.5)
+            };
         } else {
             // Home
             if (libraryData.myList.length > 0) {
@@ -1993,6 +2012,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (homeBtn) homeBtn.onclick = goHome;
         if (document.getElementById('kdrama-nav-btn')) document.getElementById('kdrama-nav-btn').onclick = goKDrama;
         if (document.getElementById('tv-nav-btn')) document.getElementById('tv-nav-btn').onclick = goTV;
+        if (document.getElementById('anime-nav-btn')) document.getElementById('anime-nav-btn').onclick = goAnime;
         if (document.getElementById('movies-nav-btn')) document.getElementById('movies-nav-btn').onclick = goMovies;
         if (document.getElementById('popular-nav-btn')) document.getElementById('popular-nav-btn').onclick = goPopular;
         if (document.getElementById('mylist-nav-btn')) document.getElementById('mylist-nav-btn').onclick = goMyList;
