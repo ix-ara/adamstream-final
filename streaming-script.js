@@ -914,6 +914,9 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
 
     function startHeroRotation() {
         clearInterval(heroInterval);
+        // Ensure hero dots exist
+        ensureHeroDots();
+
         const rotate = () => {
             if (featuredPool.length === 0) return;
             currentHeroIndex = (currentHeroIndex + 1) % featuredPool.length;
@@ -934,10 +937,75 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                     if (heroDesc) heroDesc.textContent = nextItem.overview;
                     if (heroPlay) heroPlay.onclick = () => playMedia(nextItem);
                     if (heroInfo) heroInfo.onclick = () => openModal(nextItem);
+                    updateHeroDots();
                 }, 1500);
             }
         };
         heroInterval = setInterval(rotate, 8000);
+
+        // Mobile swipe handlers to allow manual carousel control
+        if (heroSection) {
+            let touchStartX = 0;
+            const minSwipe = 40;
+
+            const onTouchStart = (e) => {
+                if (!e.touches || !e.touches[0]) return;
+                touchStartX = e.touches[0].clientX;
+                clearInterval(heroInterval);
+            };
+
+            const onTouchEnd = (e) => {
+                const touchEndX = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : 0;
+                const dx = touchEndX - touchStartX;
+                if (Math.abs(dx) > minSwipe && featuredPool.length > 0) {
+                    if (dx < 0) currentHeroIndex = (currentHeroIndex + 1) % featuredPool.length;
+                    else currentHeroIndex = (currentHeroIndex - 1 + featuredPool.length) % featuredPool.length;
+                    const nextItem = featuredPool[currentHeroIndex];
+                    updateHeroUI(nextItem);
+                }
+                // restart auto-rotate after brief delay
+                setTimeout(startHeroRotation, 1200);
+            };
+
+            heroSection.removeEventListener('touchstart', onTouchStart);
+            heroSection.removeEventListener('touchend', onTouchEnd);
+            heroSection.addEventListener('touchstart', onTouchStart, { passive: true });
+            heroSection.addEventListener('touchend', onTouchEnd, { passive: true });
+        }
+    }
+
+    function ensureHeroDots() {
+        const existing = document.getElementById('hero-dots');
+        if (existing) return existing;
+        const container = document.createElement('div');
+        container.id = 'hero-dots';
+        container.setAttribute('aria-hidden', 'true');
+        (featuredPool || []).forEach((_, idx) => {
+            const dot = document.createElement('div');
+            dot.className = 'dot' + (idx === currentHeroIndex ? ' active' : '');
+            dot.dataset.index = String(idx);
+            dot.onclick = (e) => {
+                const i = Number(e.currentTarget.dataset.index || 0);
+                currentHeroIndex = i;
+                const item = featuredPool[currentHeroIndex];
+                updateHeroUI(item);
+                // reset rotation timer
+                clearInterval(heroInterval);
+                startHeroRotation();
+            };
+            container.appendChild(dot);
+        });
+        const heroWrap = document.getElementById('hero');
+        if (heroWrap) heroWrap.appendChild(container);
+        return container;
+    }
+
+    function updateHeroDots() {
+        const container = document.getElementById('hero-dots');
+        if (!container) return;
+        Array.from(container.children).forEach((c, idx) => {
+            c.classList.toggle('active', idx === currentHeroIndex);
+        });
     }
 
     // --- MODAL ---
@@ -1294,7 +1362,10 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                     if (scrollContainer.children.length === 0) {
                         const fragment = document.createDocumentFragment();
                         items.forEach((item, idx) => {
-                            fragment.appendChild(createMovieCard(item, isTrending && idx < 5));
+                            const card = createMovieCard(item, isTrending && idx < 5);
+                            card.classList.add('animate-pop-in');
+                            card.style.animationDelay = `${idx * 60}ms`;
+                            fragment.appendChild(card);
                         });
                         scrollContainer.appendChild(fragment);
                     }
@@ -1391,6 +1462,31 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 if (row && contentRows) contentRows.appendChild(row);
             }
         });
+
+        // Mobile: collapse extra rows by default and add an expand toggle
+        if (window.innerWidth <= 768) {
+            // Ensure collapsed state by default
+            contentRows.classList.remove('expanded');
+
+            if (!document.getElementById('mobile-expand-btn')) {
+                const expandBtn = document.createElement('button');
+                expandBtn.id = 'mobile-expand-btn';
+                expandBtn.className = 'bg-netflix-red text-white px-6 py-2 rounded-full font-black shadow-lg';
+                expandBtn.textContent = 'Show More';
+                expandBtn.onclick = () => {
+                    const expanded = contentRows.classList.toggle('expanded');
+                    expandBtn.textContent = expanded ? 'Show Less' : 'Show More';
+                    // Smooth scroll to keep context
+                    if (!expanded) window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+                contentRows.appendChild(expandBtn);
+            }
+        } else {
+            // Remove mobile expand button on larger screens
+            const existing = document.getElementById('mobile-expand-btn');
+            if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+            contentRows.classList.add('expanded');
+        }
     }
 
     function renderGrid(title, items) {
