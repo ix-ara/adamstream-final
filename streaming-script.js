@@ -1447,7 +1447,36 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                     <span>${item.year}</span>
                 </div>
             </div>
+            <div class="shine"></div>
         `;
+
+        // Pointer-based 3D tilt + shine
+        const maxTilt = 10; // degrees
+        const rect = () => card.getBoundingClientRect();
+        const onPointerMove = (e) => {
+            const r = rect();
+            const px = (e.clientX - r.left) / r.width; // 0..1
+            const py = (e.clientY - r.top) / r.height;
+            const tiltY = (px - 0.5) * maxTilt * 2;
+            const tiltX = -((py - 0.5) * maxTilt * 2);
+            card.style.transform = `translateZ(12px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.02)`;
+            card.classList.add('hover-shine');
+            const shine = card.querySelector('.shine');
+            if (shine) {
+                const sx = (px * 140) - 60; // move shine across
+                shine.style.transform = `translateX(${sx}%) skewX(-18deg)`;
+            }
+        };
+
+        const onPointerLeave = () => {
+            card.style.transform = '';
+            card.classList.remove('hover-shine');
+            const shine = card.querySelector('.shine');
+            if (shine) shine.style.transform = 'translateX(-60%) skewX(-18deg)';
+        };
+
+        card.addEventListener('pointermove', onPointerMove);
+        card.addEventListener('pointerleave', onPointerLeave);
 
         card.addEventListener('click', () => openModal(item));
         return card;
@@ -1568,6 +1597,44 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         heroEl.addEventListener('mouseleave', onLeave);
         heroEl.addEventListener('touchmove', (e) => { if (e.touches && e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
         heroEl.addEventListener('touchend', onLeave);
+    }
+
+    // --- Particle background for hero ---
+    function initParticles() {
+        const canvas = document.getElementById('hero-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let w = canvas.width = canvas.offsetWidth;
+        let h = canvas.height = canvas.offsetHeight;
+        const particles = [];
+
+        function rand(min, max) { return Math.random() * (max - min) + min; }
+
+        for (let i = 0; i < Math.max(18, Math.floor(w / 60)); i++) {
+            particles.push({ x: rand(0, w), y: rand(0, h), r: rand(1, 3), vx: rand(-0.2, 0.6), vy: rand(-0.05, 0.05), alpha: rand(0.08, 0.28) });
+        }
+
+        function resize() { w = canvas.width = canvas.offsetWidth; h = canvas.height = canvas.offsetHeight; }
+        window.addEventListener('resize', resize);
+
+        function step() {
+            ctx.clearRect(0, 0, w, h);
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.x > w + 20) p.x = -20;
+                if (p.x < -20) p.x = w + 20;
+                if (p.y > h + 20) p.y = -20;
+                if (p.y < -20) p.y = h + 20;
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            requestAnimationFrame(step);
+        }
+
+        step();
     }
 
     function renderLibrary() {
@@ -1816,6 +1883,10 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         if (isInitialized) return;
         isInitialized = true;
         initAuth();
+
+        // Initialize hero particles and parallax
+        initParticles();
+        initParallax();
 
         if (!TMDB_API_KEY) {
             showApiKeyModal();
