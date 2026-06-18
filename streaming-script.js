@@ -136,6 +136,32 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         }
     };
 
+    // Anime source toggles (restore minimal defaults removed by prior commit)
+    let animeDubMode = false;
+    let currentAnimeSourceIdx = 0;
+    let animeSourceFailCount = 0;
+    const ANIME_SUB_SOURCES = [
+        { key: 'vidlink', name: 'VidLink' },
+        { key: 'vidsrc_cc', name: 'VidSrc.cc' },
+        { key: 'vidsrc_to', name: 'VidSrc.to' }
+    ];
+    const ANIME_DUB_SOURCES = ANIME_SUB_SOURCES.slice();
+
+    function updateAnimeToggleButtons() {
+        if (!btnSub || !btnDub) return;
+        // Toggle visual states
+        btnSub.classList.toggle('bg-white', !animeDubMode);
+        btnSub.classList.toggle('text-black', !animeDubMode);
+        btnSub.classList.toggle('bg-zinc-900/80', animeDubMode);
+        btnSub.classList.toggle('text-zinc-300', animeDubMode);
+        btnDub.classList.toggle('bg-white', animeDubMode);
+        btnDub.classList.toggle('text-black', animeDubMode);
+        btnDub.classList.toggle('bg-zinc-900/80', !animeDubMode);
+        btnDub.classList.toggle('text-zinc-300', !animeDubMode);
+        const sources = animeDubMode ? ANIME_DUB_SOURCES : ANIME_SUB_SOURCES;
+        if (playerSourceName) playerSourceName.textContent = sources[currentAnimeSourceIdx % sources.length]?.name || 'Switching...';
+    }
+
     const SERVER_FAILURES_KEY = 'adamstream_server_failures';
     const SERVER_BLACKLIST_KEY = 'adamstream_server_blacklist';
     const SERVER_BLACKLIST_TTL = 1000 * 60 * 60 * 6; // 6 hours
@@ -184,6 +210,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const BASE_URL = 'https://api.themoviedb.org/3';
     const IMG_BASE_URL = 'https://image.tmdb.org/t/p/w500';
     const IMG_BG_BASE = 'https://image.tmdb.org/t/p/w1280';
+    const ANIME_PLACEHOLDER_BACKDROP = 'https://images.unsplash.com/photo-1541562232579-512a21360020?q=80&w=1600';
 
     function getNextServer() {
         const queue = getServerQueue(currentServer);
