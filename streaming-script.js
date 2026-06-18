@@ -672,6 +672,30 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
         }
     }
 
+    // Fallback loader that populates anime from Jikan when TMDB requests fail or are missing
+    async function loadAnimeFallbackData(includeGenres = false) {
+        try {
+            const data = await fetchJikan('/top/anime', { page: 1 }, 8000);
+            if (data && Array.isArray(data.data)) {
+                libraryData.anime = data.data.slice(0, 60).map(a => ({
+                    id: `mal_${a.mal_id}`,
+                    tmdb_id: a.mal_id,
+                    isMovie: false,
+                    isAnime: true,
+                    title: a.title,
+                    originalTitle: a.title,
+                    overview: a.synopsis || 'No description available for this title.',
+                    poster: a.images?.jpg?.image_url || ANIME_PLACEHOLDER_BACKDROP,
+                    backdrop: a.images?.jpg?.image_url || ANIME_PLACEHOLDER_BACKDROP,
+                    rating: a.score ? String(a.score) : 'NR',
+                    year: (a.aired && a.aired.from) ? String(a.aired.from).substring(0,4) : ''
+                }));
+            }
+        } catch (e) {
+            console.warn('Failed to load anime fallback from Jikan', e);
+        }
+    }
+
     function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -819,12 +843,14 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
                 romanceTV: fetchTMDB('/discover/tv?with_genres=10766&sort_by=popularity.desc'),
                 actionKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10759&sort_by=popularity.desc'),
                 horrorKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=9648&sort_by=popularity.desc'),
-                romanceKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc')
+                romanceKDrama: fetchTMDB('/discover/tv?with_origin_country=KR&with_genres=10766&sort_by=popularity.desc'),
+                // Anime: prioritize TMDB discover for JP animation; fallback will use Jikan if TMDB fails
+                anime: fetchTMDB('/discover/tv?with_origin_country=JP&with_genres=16&sort_by=popularity.desc')
             };
 
             const deferredResults = await Promise.allSettled(Object.values(deferredEndpoints).map(promise => fetchWithTimeout(promise, 10000)));
             const deferredValues = deferredResults.map(result => result.status === 'fulfilled' ? result.value : null);
-            const [actionRes, comedyRes, horrorRes, scifiRes, crimeTvRes, actionMoviesRes, horrorMoviesRes, romanceMoviesRes, actionTVRes, horrorTVRes, romanceTVRes, actionKDramaRes, horrorKDramaRes, romanceKDramaRes] = deferredValues;
+            const [actionRes, comedyRes, horrorRes, scifiRes, crimeTvRes, actionMoviesRes, horrorMoviesRes, romanceMoviesRes, actionTVRes, horrorTVRes, romanceTVRes, actionKDramaRes, horrorKDramaRes, romanceKDramaRes, animeRes] = deferredValues;
 
             if (actionRes) libraryData.action = actionRes.results.map(i => formatItem(i, 'movie'));
             if (comedyRes) libraryData.comedy = comedyRes.results.map(i => formatItem(i, 'movie'));
@@ -840,6 +866,7 @@ p{margin:0 auto;color:#d8d0c2;font-size:16px;line-height:1.6;max-width:520px}
             if (actionKDramaRes) libraryData.actionKDrama = actionKDramaRes.results.map(i => formatItem(i, 'tv'));
             if (horrorKDramaRes) libraryData.horrorKDrama = horrorKDramaRes.results.map(i => formatItem(i, 'tv'));
             if (romanceKDramaRes) libraryData.romanceKDrama = romanceKDramaRes.results.map(i => formatItem(i, 'tv'));
+            if (animeRes) libraryData.anime = animeRes.results.map(i => formatItem(i, 'anime'));
 
             renderLibrary();
         } catch (error) {
