@@ -114,8 +114,8 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
     // When true the player will prefer official trailers/previews instead of
     // loading third-party embed players that frequently return "Video Not Found".
-    // We default to false so the app will attempt real streaming providers first.
-    const PREFER_TRAILER_FOR_PLAY = false;
+    // Default to true to avoid showing raw 404 pages from unreliable embeds.
+    const PREFER_TRAILER_FOR_PLAY = true;
 
     // Profile states removed
 
@@ -336,12 +336,49 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             }
         };
 
+        // Listen for messages from srcdoc wrapper (if used)
+        const messageHandler = (e) => {
+            try {
+                const data = e.data || {};
+                if (data && data.type === 'embed-status' && data.token === playbackToken) {
+                    if (data.status === 'loaded') {
+                        // Successful embedded load
+                        hidePlayerLoader();
+                    } else if (data.status === 'error') {
+                        // Treat as error and fall back
+                        playerIframe.onerror && playerIframe.onerror();
+                    }
+                }
+            } catch (err) {}
+        };
+        window.addEventListener('message', messageHandler);
+
         playerIframe.onload = () => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
         };
 
+        const isDataOrSameOrigin = String(url || '').startsWith('data:') || String(url || '').startsWith(window.location.origin);
+
         try {
-            playerIframe.src = url;
+            // For uncertain third-party providers, use srcdoc wrapper so we can detect inner iframe errors
+            if (!isDataOrSameOrigin && String(url || '').startsWith('http')) {
+                const safeHtml = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#000;">
+                <iframe id="inner" src="${escapeHtml(url)}" style="width:100%;height:100%;border:0;" sandbox></iframe>
+                <script>
+                    const token = ${JSON.stringify(playbackToken)};
+                    const inner = document.getElementById('inner');
+                    let settled = false;
+                    const onLoad = () => { if (settled) return; settled = true; parent.postMessage({ type: 'embed-status', status: 'loaded', token }, '*'); };
+                    const onError = () => { if (settled) return; settled = true; parent.postMessage({ type: 'embed-status', status: 'error', token }, '*'); };
+                    inner.addEventListener('load', onLoad);
+                    inner.addEventListener('error', onError);
+                    // timeout -> treat as error
+                    setTimeout(() => { if (!settled) { settled = true; parent.postMessage({ type: 'embed-status', status: 'error', token }, '*'); } }, ${Math.max(4000, loaderTimeout)});
+                <\/script></body></html>`;
+                try { playerIframe.srcdoc = safeHtml; } catch (e) { playerIframe.src = url; }
+            } else {
+                playerIframe.src = url;
+            }
         } catch (e) {
             console.warn('Failed to set iframe src', e);
             // Try trailer/preview immediately if direct assignment errors
@@ -362,7 +399,8 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
 
         setTimeout(() => {
             if (playbackToken === currentPlaybackToken) hidePlayerLoader();
-        }, loaderTimeout);
+            window.removeEventListener('message', messageHandler);
+        }, loaderTimeout + 400);
     }
 
     // Attempt to load a URL into the iframe and resolve on load/reject on error or timeout.
