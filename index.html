@@ -252,6 +252,40 @@
             box-shadow: 0 8px 28px rgba(0,0,0,0.18);
         }
 
+        #anime-watch-shell {
+            pointer-events: none;
+        }
+
+        #anime-watch-shell.visible {
+            pointer-events: auto;
+        }
+
+        #anime-episode-panel {
+            background: rgba(10, 11, 14, 0.85);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+            overflow: hidden;
+            width: 280px;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #anime-episode-list {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 221, 89, 0.5) transparent;
+        }
+
+        #anime-episode-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #anime-episode-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 221, 89, 0.5);
+            border-radius: 9999px;
+        }
+
         .anime-page-shell {
             background: #0f1015;
             border-radius: 18px;
@@ -884,44 +918,63 @@
                             aria-label="Add to list">
                             <span class="material-symbols-outlined">add</span>
                         </button>
-                        <button type="button"
-                            class="bg-white/10 text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/30"
-                            aria-label="Rate this title">
-                            <span class="material-symbols-outlined">thumb_up</span>
-                        </button>
                     </div>
                 </div>
             </div>
-            <div class="p-10 grid grid-cols-1 md:grid-cols-3 gap-10">
-                <div class="md:col-span-2 space-y-8">
-                    <div class="flex items-center gap-3 text-sm font-bold text-zinc-400">
+            <div class="p-6 md:p-10">
+                <div class="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div class="flex flex-wrap items-center gap-3 text-sm font-bold text-zinc-400">
                         <span id="modal-year"></span>
                         <span id="modal-rating" class="border border-zinc-600 px-1 rounded text-[10px]"></span>
                         <span id="modal-duration"></span>
                         <span class="text-netflix-red">4K Ultra HD</span>
                     </div>
-                    <p id="modal-desc" class="text-lg text-zinc-200 leading-relaxed"></p>
-
-                    <!-- Episodes Section -->
-                    <div id="episodes-section" class="hidden mt-10 space-y-6">
-                        <div class="flex items-center justify-between border-b border-white/10 pb-4">
-                            <h4 class="text-xl font-bold uppercase tracking-tighter">Episodes</h4>
-                            <select id="season-select" class="bg-zinc-800 text-white text-sm border border-white/10 rounded-md px-3 py-1 outline-none cursor-pointer font-bold focus:ring-2 focus:ring-netflix-red transition-all">
-                                <!-- Seasons populated by JS -->
-                            </select>
-                        </div>
-                        <div id="episodes-list" class="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
-                            <!-- Episode cards populated by JS -->
-                        </div>
+                    <div class="flex items-center gap-3">
+                        <button id="modal-play"
+                            class="bg-netflix-red text-white px-5 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-red-700 transition-colors">
+                            <span class="material-symbols-outlined fill" style="font-variation-settings: 'FILL' 1;">play_arrow</span> Watch Now
+                        </button>
+                        <button id="modal-add-list" type="button"
+                            class="bg-white/10 text-white h-12 w-12 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors border border-white/30"
+                            aria-label="Add to list">
+                            <span class="material-symbols-outlined">add</span>
+                        </button>
                     </div>
-
                 </div>
-                <div class="space-y-4">
-                    <div class="text-sm text-zinc-400">
-                        <span class="font-bold">Cast:</span> <span id="modal-cast" class="text-zinc-200"></span>
+
+                <div class="grid grid-cols-1 gap-10 xl:grid-cols-[1.5fr_0.7fr]">
+                    <div class="space-y-8">
+                        <p id="modal-desc" class="text-lg text-zinc-200 leading-relaxed"></p>
+
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xl font-black uppercase tracking-tighter">More Seasons</h4>
+                            </div>
+                            <div id="anime-seasons-carousel" class="flex gap-3 overflow-x-auto pb-2 no-scrollbar"></div>
+                        </div>
+
+                        <div id="episodes-section" class="space-y-6">
+                            <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                                <h4 class="text-xl font-black uppercase tracking-tighter">Episodes</h4>
+                                <select id="season-select" class="bg-zinc-800 text-white text-sm border border-white/10 rounded-md px-3 py-1 outline-none cursor-pointer font-bold focus:ring-2 focus:ring-netflix-red transition-all">
+                                    <!-- Seasons populated by JS -->
+                                </select>
+                            </div>
+                            <div id="episodes-list" class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 max-h-[420px] overflow-y-auto pr-2 no-scrollbar">
+                                <!-- Episode cards populated by JS -->
+                            </div>
+                        </div>
                     </div>
-                    <div class="text-sm text-zinc-400">
-                        <span class="font-bold">Genres:</span> <span id="modal-genre" class="text-zinc-200"></span>
+
+                    <div class="space-y-4">
+                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div class="text-sm text-zinc-400">
+                                <span class="font-bold">Cast:</span> <span id="modal-cast" class="text-zinc-200"></span>
+                            </div>
+                            <div class="mt-4 text-sm text-zinc-400">
+                                <span class="font-bold">Genres:</span> <span id="modal-genre" class="text-zinc-200"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -975,19 +1028,10 @@
                     class="bg-zinc-900/95 text-white text-sm border border-white/10 rounded px-2 py-1 outline-none cursor-pointer font-bold shadow-inner">
                 </select>
             </div>
-            <!-- Next Source (anime) -->
             <button id="btn-next-source" class="hidden items-center gap-1 bg-zinc-800/90 hover:bg-netflix-red text-zinc-300 hover:text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10">
                 <span class="material-symbols-outlined text-sm leading-none">skip_next</span>
                 <span class="hidden sm:inline">Next Source</span>
             </button>
-        </div>
-
-        <!-- Server Switcher (movies/TV) -->
-        <div id="player-server-controls"
-            class="absolute bottom-8 left-1/2 -translate-x-1/2 z-[310] hidden items-center gap-2 bg-black/70 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
-            <span class="text-zinc-500 text-[10px] font-black uppercase tracking-widest mr-1">Server</span>
-            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-netflix-red text-white" data-server="vidsrc_me">Primary</button>
-            <button class="server-btn text-xs font-bold px-3 py-1 rounded-full transition-all bg-zinc-800 text-zinc-400 hover:text-white" data-server="vidsrc_pro">Backup</button>
         </div>
 
         <!-- Active Source Badge (anime) -->
@@ -1007,12 +1051,6 @@
 
 
 
-
-        <!-- Kurdish Subtitle Toggle -->
-        <button id="player-sub-btn" class="hidden absolute top-10 left-44 z-[310] items-center gap-1 bg-zinc-800/90 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xs font-bold px-3 py-2 rounded-full transition-all border border-white/10">
-            <span class="material-symbols-outlined text-sm">subtitles</span>
-            <span>CC</span>
-        </button>
 
         <!-- Buffering Overlay - starts hidden, shown only during load -->
         <div id="player-loader"
@@ -1042,48 +1080,50 @@
                 </div>
             </div>
 
-            <!-- Real Video Player API -->
-            <div id="player-container" class="w-full h-full relative z-0">
-                <video id="anime-subtitle-video"
-                    class="hidden w-full h-full object-cover bg-black"
-                    crossorigin="anonymous"
-                    controls
-                    playsinline
-                    preload="metadata">
-                    <source src="" />
-                    <track label="English SUB" kind="subtitles" srclang="en" src="subtitle.vtt" default />
-                </video>
-
-                <!-- Anime Sub/Dub Toggle Component (State Manager) -->
-                <div id="anime-toggle-container"
-                    class="absolute top-10 right-10 z-[310] hidden items-center gap-2 bg-black/60 px-2 py-1.5 rounded-full backdrop-blur-md border border-white/10">
-                    <button id="btn-sub" class="hidden items-center bg-white text-black text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105">Japanese Sub</button>
-                    <button id="btn-dub" class="hidden items-center bg-zinc-900/80 text-zinc-300 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 border border-white/10">English Dub</button>
-                </div>
-
-                <button id="anime-play-btn"
-                    class="absolute right-10 top-20 z-[310] hidden items-center gap-2 bg-netflix-red text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.02] transition-all">
-                    <span class="material-symbols-outlined text-sm">play_arrow</span>
-                    <span>Play Selected</span>
-                </button>
-
+            <div id="anime-watch-shell" class="absolute inset-x-0 top-16 bottom-0 z-[301] hidden px-4 pb-4">
+            <div class="mx-auto flex h-full max-w-[1500px] gap-4">
                 <div id="anime-episode-panel"
-                    class="absolute left-5 top-16 z-[310] hidden w-56 max-h-[68vh] overflow-hidden rounded-2xl border border-white/10 bg-black/75 backdrop-blur-md shadow-2xl">
-                    <div class="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                    class="hidden h-full w-[280px] overflow-hidden rounded-[20px] border border-white/10 bg-[#0b0c10]/90 shadow-2xl backdrop-blur-sm">
+                    <div class="flex items-center justify-between border-b border-white/10 px-3 py-3">
                         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Episodes</span>
                         <span id="anime-season-label" class="text-[10px] font-bold text-zinc-200">S1</span>
                     </div>
-                    <div id="anime-episode-list" class="max-h-[60vh] overflow-y-auto no-scrollbar"></div>
+                    <div id="anime-episode-list" class="flex-1 overflow-y-auto no-scrollbar"></div>
                 </div>
 
-                <iframe id="streaming-player" class="w-full h-full border-0 bg-black relative z-0"
-                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen="true"
-                    webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="origin"
-                    title="AdamStream Player"></iframe>
-                <div class="absolute top-28 left-10 z-[309] bg-black/40 px-4 py-2 rounded-md border border-white/20 pointer-events-none transition-opacity duration-300"
-                    id="player-title-overlay">
-                    <p class="text-xs text-zinc-300 uppercase tracking-[0.2em]">Now previewing</p>
-                    <p id="player-title" class="text-base text-white uppercase tracking-wider font-black"></p>
+                <div class="flex min-w-0 flex-1 flex-col gap-4">
+                    <div id="player-container" class="relative z-0 flex-1 overflow-hidden rounded-[20px] border border-white/10 bg-black shadow-2xl">
+                        <video id="anime-subtitle-video"
+                            class="hidden h-full w-full object-cover bg-black"
+                            crossorigin="anonymous"
+                            controls
+                            playsinline
+                            preload="metadata">
+                            <source src="" />
+                            <track label="English SUB" kind="subtitles" srclang="en" src="subtitle.vtt" default />
+                        </video>
+
+                        <iframe id="streaming-player" class="h-full w-full border-0 bg-black relative z-0"
+                            allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen="true"
+                            webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="origin"
+                            title="AdamStream Player"></iframe>
+
+                        <div class="absolute top-5 left-5 z-[309] bg-black/40 px-4 py-2 rounded-md border border-white/20 pointer-events-none transition-opacity duration-300"
+                            id="player-title-overlay">
+                            <p class="text-xs text-zinc-300 uppercase tracking-[0.2em]">Now previewing</p>
+                            <p id="player-title" class="text-base text-white uppercase tracking-wider font-black"></p>
+                        </div>
+                    </div>
+
+                    <div id="player-server-controls"
+                        class="hidden items-center justify-center gap-2 rounded-full border border-white/10 bg-black/70 px-4 py-2 backdrop-blur-md">
+                        <span class="text-zinc-500 text-[10px] font-black uppercase tracking-widest mr-1">Server</span>
+                        <button type="button" id="btn-sub" class="hidden items-center bg-white text-black text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105">SUB</button>
+                        <button type="button" id="btn-dub" class="hidden items-center bg-zinc-900/80 text-zinc-300 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 border border-white/10">DUB</button>
+                        <button type="button" class="server-btn text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10 bg-zinc-800/80 text-zinc-300 hover:text-white" data-server="vidsrc_me">HD-1</button>
+                        <button type="button" class="server-btn text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-white/10 bg-zinc-800/80 text-zinc-300 hover:text-white" data-server="vidsrc_pro">HD-2</button>
+                        <button type="button" class="ml-2 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border border-red-500/40 bg-red-500/10 text-red-200 hover:bg-red-500/20 transition-all">Report Problem</button>
+                    </div>
                 </div>
             </div>
         </div>
