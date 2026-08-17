@@ -89,6 +89,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     let currentServer         = 'vidsrc_cc';
     let streamFailoverTimer   = null;
     let serverKeys            = [];
+    let loadToken             = 0; // incremented on each loadStream call to discard stale callbacks
 
     // ─── TMDB Config ──────────────────────────────────────────────────────────
     const BASE_URL     = 'https://api.themoviedb.org/3';
@@ -494,9 +495,17 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     }
 
     function loadStream(item, season, episode, serverKey = currentServer) {
-        if (!item || !playerIframe) return;
+        if (!item) return;
+
+        // Always re-query the iframe from DOM — never rely on the stale const reference
+        // (the const captured at init time is still valid since we no longer clone/replace it)
+        const iframe = document.getElementById('streaming-player');
+        if (!iframe) return;
 
         clearTimeout(streamFailoverTimer);
+
+        // Mint a new load token — stale onload/onerror callbacks will self-discard
+        const myToken = ++loadToken;
 
         // Remove any lingering error panel
         const errPanel = playerContainer?.querySelector('#stream-error-panel');
@@ -523,40 +532,31 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             playerVideo.pause();
             playerVideo.classList.add('hidden');
         }
-        playerIframe.classList.remove('hidden');
-        playerIframe.style.display = '';
+        iframe.style.display = '';
 
-        // Set iframe attributes
-        playerIframe.setAttribute('allowfullscreen', 'true');
-        playerIframe.setAttribute('webkitallowfullscreen', 'true');
-        playerIframe.setAttribute('mozallowfullscreen', 'true');
-        playerIframe.setAttribute('referrerpolicy', 'origin');
-        playerIframe.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
-
-        // Detach and re-attach load/error listeners to avoid stacking
-        const newIframe = playerIframe.cloneNode(false);
-        playerIframe.parentNode.replaceChild(newIframe, playerIframe);
-        // Update reference in outer scope via the global id
-        const liveIframe = document.getElementById('streaming-player');
-
-        liveIframe.onload = () => {
+        // Assign onload / onerror using the token to discard stale callbacks
+        iframe.onload = () => {
+            if (loadToken !== myToken) return; // stale — a newer loadStream already ran
             clearTimeout(streamFailoverTimer);
             hidePlayerLoader();
         };
-        liveIframe.onerror = () => {
+        iframe.onerror = () => {
+            if (loadToken !== myToken) return;
             clearTimeout(streamFailoverTimer);
-            startFailoverTimer(); // immediately try next
+            startFailoverTimer();
         };
 
-        try {
-            liveIframe.src = streamUrl;
-        } catch (e) {
-            console.error('Error setting stream URL:', e);
-            startFailoverTimer();
-            return;
-        }
+        // Blank the src first so browsers re-trigger load on the same URL
+        iframe.src = 'about:blank';
 
-        // Safety net: if load event never fires (common with cross-origin iframes),
+        // Use requestAnimationFrame to let the browser process the blank src before
+        // setting the real URL — avoids same-src no-op in some browsers
+        requestAnimationFrame(() => {
+            if (loadToken !== myToken) return;
+            iframe.src = streamUrl;
+        });
+
+        // Safety net: if the load event never fires (cross-origin iframes often don't),
         // auto-failover after 7 seconds.
         startFailoverTimer();
     }
