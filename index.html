@@ -911,8 +911,8 @@
         <div class="flex-1 flex flex-col min-h-0 relative overflow-hidden p-3 md:p-6">
             <div id="player-watch-shell" class="mx-auto flex h-full w-full max-w-[1540px] gap-4">
                 
-                <!-- Anime / TV Shows Vertical Episode Sidebar (Hidden for Movies) -->
-                <aside id="player-sidebar" class="hidden h-full w-[260px] md:w-[280px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0c0d12]/95 shadow-2xl backdrop-blur-md flex flex-col">
+                <!-- Anime / TV Shows Vertical Episode Sidebar (Hidden for Movies by default) -->
+                <aside id="player-sidebar" style="display:none;flex-direction:column" class="h-full w-[260px] md:w-[280px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0c0d12]/95 shadow-2xl backdrop-blur-md">
                     <div class="flex items-center justify-between border-b border-white/10 px-4 py-3 bg-white/5">
                         <span class="text-[11px] font-black uppercase tracking-widest text-zinc-400">Episodes</span>
                         <select id="player-season-select" class="bg-zinc-800 text-white text-xs border border-white/10 rounded px-2.5 py-1 outline-none font-bold cursor-pointer">
@@ -941,7 +941,7 @@
                         </video>
 
                         <!-- Primary Streaming Embed Player -->
-                        <iframe id="streaming-player" class="h-full w-full border-0 bg-black relative z-0"
+                        <iframe id="streaming-player" src="about:blank" class="h-full w-full border-0 bg-black relative z-0"
                             allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen="true"
                             webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="origin"
                             title="AdamStream Player"></iframe>
@@ -955,9 +955,9 @@
                         </div>
 
                         <div id="player-server-controls" class="flex items-center gap-2 flex-wrap ml-auto">
-                            <!-- Anime Sub / Dub toggles -->
-                            <button type="button" id="btn-sub" class="hidden items-center bg-white text-black text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 hover:scale-105">SUB</button>
-                            <button type="button" id="btn-dub" class="hidden items-center bg-zinc-800 text-zinc-300 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 hover:scale-105 border border-white/10">DUB</button>
+                            <!-- Anime Sub / Dub toggles (hidden by default, shown for anime in JS) -->
+                            <button type="button" id="btn-sub" style="display:none" class="text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 hover:scale-105">SUB</button>
+                            <button type="button" id="btn-dub" style="display:none" class="text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 hover:scale-105">DUB</button>
                             
                             <!-- Server Selector Buttons -->
                             <div id="server-buttons-container" class="flex items-center gap-1.5 flex-wrap">
