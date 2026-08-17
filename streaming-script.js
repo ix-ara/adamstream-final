@@ -26,6 +26,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const exitPlayerBtn = document.getElementById('exit-player');
     const playerTitleOverlay = document.getElementById('player-title-overlay');
     const playerTitle = document.getElementById('player-title');
+    const watchingEpisodeLabel = document.getElementById('watching-episode-label');
     const playerTitleLabel = document.getElementById('player-title-label');
     const playerEpisodeSelector = document.getElementById('player-episode-selector');
     const playerEpisodeControls = document.getElementById('player-episode-controls');
@@ -473,6 +474,14 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         if (playerTitleLabel) playerTitleLabel.textContent = mode === 'preview' ? 'Preview' : 'Episode';
     }
 
+    function updateWatchingEpisodeLabel(item, season, episode) {
+        if (!watchingEpisodeLabel) return;
+        const title = item?.title || 'Episode';
+        const currentSeason = Number(season) || 1;
+        const currentEpisode = Number(episode) || 1;
+        watchingEpisodeLabel.textContent = `${title} • S${currentSeason} E${currentEpisode}`;
+    }
+
     function hidePlayerLoader() {
         if (playerLoader) {
             playerLoader.classList.add('opacity-0', 'pointer-events-none');
@@ -543,6 +552,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
                 if (playerTitle) {
                     playerTitle.textContent = `${item.title} - S${season} E${episode} (${animeDubMode ? 'Dub' : 'Sub'})`;
                 }
+                updateWatchingEpisodeLabel(item, season, episode);
                 return true;
             } catch (err) {
                 console.warn('Anime streaming failed on server:', server.label, err);
@@ -1434,6 +1444,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         document.body.style.overflow = 'hidden';
         if (playerTitleOverlay) playerTitleOverlay.classList.remove('opacity-0');
         if (playerTitle) playerTitle.textContent = `${item.title} - Loading...`;
+        updateWatchingEpisodeLabel(item, season || 1, episode || 1);
 
         currentPlayingItem = item;
         setAnimePlayerUiVisible(!!item.isAnime);
@@ -1453,6 +1464,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             populatePlayerSelectors(selectedSeason, selectedEpisode);
             season = selectedSeason;
             episode = selectedEpisode;
+            updateWatchingEpisodeLabel(item, season, episode);
             buildAnimeEpisodePanel(item);
 
             if (playerEpisodeControls) {
