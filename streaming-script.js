@@ -998,6 +998,24 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
                 contentRows.classList.add('-mt-20');
                 contentRows.classList.remove('mt-24');
             }
+
+            if (!featuredPool.length) {
+                clearInterval(heroInterval);
+                if (heroTitle) heroTitle.textContent = 'YOUR WATCHLIST IS EMPTY';
+                if (heroDesc) heroDesc.textContent = 'Save titles you love to build a personal list of favorites.';
+                if (heroPlay) {
+                    heroPlay.onclick = null;
+                    heroPlay.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                if (heroInfo) {
+                    heroInfo.onclick = null;
+                    heroInfo.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                if (heroBg) heroBg.removeAttribute('src');
+                return;
+            }
+
+            currentHeroIndex = 0;
             startHeroRotation();
             if (featuredPool[currentHeroIndex]) updateHeroUI(featuredPool[currentHeroIndex]);
         }
@@ -1230,7 +1248,11 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
                 addListBtn.classList.toggle('bg-white/10', !nowInList);
                 addListBtn.classList.toggle('text-white', !nowInList);
 
-                if (currentTab === 'mylist' || currentTab === 'home') renderLibrary();
+                if (currentTab === 'mylist') {
+                    updateTabState('mylist');
+                } else if (currentTab === 'home') {
+                    renderLibrary();
+                }
             };
         }
 
