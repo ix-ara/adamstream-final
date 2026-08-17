@@ -822,29 +822,33 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     }
 
     async function loadData() {
+        // Always load fallback data immediately as first tier
+        if (!libraryData.movies.length) {
+            libraryData.movies = [
+                { id: 101, tmdb_id: 823464, title: "Godzilla x Kong", year: "2024", rating: "7.2", overview: "The epic battle continues!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000" },
+                { id: 102, tmdb_id: 1022789, title: "Inside Out 2", year: "2024", rating: "8.1", overview: "Emotions are back!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2000" }
+            ];
+        }
+        if (!libraryData.tv.length) {
+            libraryData.tv = [
+                { id: 901, tmdb_id: 1396, title: "Breaking Bad", year: "2008", rating: "9.5", overview: "A chemistry teacher turned kingpin.", isMovie: false, isAnime: false, poster: "https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000" }
+            ];
+        }
+        if (!libraryData.anime.length) {
+            libraryData.anime = [
+                { id: 201, tmdb_id: 92568, title: "Attack on Titan", year: "2013", rating: "8.8", overview: "Humanity fights towering giants.", isMovie: false, isAnime: true, poster: "https://images.unsplash.com/photo-1542204165-1c7b5f7fea2c?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1558980664-10b2f1e0f1d0?q=80&w=2000" },
+                { id: 202, tmdb_id: 2065, title: "One Piece", year: "1999", rating: "8.6", overview: "A boy seeks the ultimate treasure.", isMovie: false, isAnime: true, poster: "https://images.unsplash.com/photo-1543163521-1bf539c55a66?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=2000" },
+                { id: 203, tmdb_id: 155, title: "Naruto", year: "2002", rating: "8.1", overview: "A ninja's journey to become Hokage.", isMovie: false, isAnime: true, poster: "https://images.unsplash.com/photo-1520975698511-0bde3b0b8d1b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1505685296765-3a2736de412f?q=80&w=2000" }
+            ];
+        }
+        
+        // Immediately show fallback content
+        updateTabState(currentTab);
+        
+        // Try TMDB if API key exists
         if (!TMDB_API_KEY) {
             if (apiKeyModal) showApiKeyModal();
             if (appLoader) appLoader.classList.add('hidden', 'pointer-events-none');
-            if (heroSetup) heroSetup.classList.remove('hidden');
-            if (!libraryData.movies.length) {
-                libraryData.movies = [
-                    { id: 101, tmdb_id: 823464, title: "Godzilla x Kong", year: "2024", rating: "7.2", overview: "The epic battle continues!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000" },
-                    { id: 102, tmdb_id: 1022789, title: "Inside Out 2", year: "2024", rating: "8.1", overview: "Emotions are back!", isMovie: true, isAnime: false, poster: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=2000" }
-                ];
-            }
-            if (!libraryData.tv.length) {
-                libraryData.tv = [
-                    { id: 901, tmdb_id: 1396, title: "Breaking Bad", year: "2008", rating: "9.5", overview: "A chemistry teacher turned kingpin.", isMovie: false, isAnime: false, poster: "https://images.unsplash.com/photo-1616530940355-351fabd9524b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000" }
-                ];
-            }
-            if (!libraryData.anime.length) {
-                libraryData.anime = [
-                    { id: 201, tmdb_id: 92568, title: "Attack on Titan", year: "2013", rating: "8.8", overview: "Humanity fights towering giants.", isMovie: false, isAnime: true, poster: "https://images.unsplash.com/photo-1542204165-1c7b5f7fea2c?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1558980664-10b2f1e0f1d0?q=80&w=2000" },
-                    { id: 202, tmdb_id: 2065, title: "One Piece", year: "1999", rating: "8.6", overview: "A boy seeks the ultimate treasure.", isMovie: false, isAnime: true, poster: "https://images.unsplash.com/photo-1543163521-1bf539c55a66?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?q=80&w=2000" },
-                    { id: 203, tmdb_id: 155, title: "Naruto", year: "2002", rating: "8.1", overview: "A ninja's journey to become Hokage.", isMovie: false, isAnime: true, poster: "https://images.unsplash.com/photo-1520975698511-0bde3b0b8d1b?q=80&w=500", backdrop: "https://images.unsplash.com/photo-1505685296765-3a2736de412f?q=80&w=2000" }
-                ];
-            }
-            updateTabState(currentTab);
             return;
         }
         if (apiKeyModal) apiKeyModal.classList.add('opacity-0', 'pointer-events-none');
