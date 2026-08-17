@@ -135,6 +135,37 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     let currentAnimeSourceIdx = 0;
     let animeSourceFailCount = 0;
 
+    const ANIME_SERVERS = {
+        sub: [
+            {
+                key: 'sub_vidsrc_primary',
+                label: 'VidSrc Sub 1',
+                url: (id, s, e) => `https://v2.vidsrc.me/embed/anime/${id}/${s}/${e}`
+            },
+            {
+                key: 'sub_vidsrc_backup',
+                label: 'VidSrc Sub 2',
+                url: (id, s, e) => `https://vidsrc.pro/embed/anime/${id}/${s}/${e}`
+            }
+        ],
+        dub: [
+            {
+                key: 'dub_vidlink_primary',
+                label: 'VidLink Dub 1',
+                url: (id, s, e) => `https://vidlink.org/embed/anime/${id}?episode=${e}&dub=true`
+            },
+            {
+                key: 'dub_vidlink_backup',
+                label: 'VidLink Dub 2',
+                url: (id, s, e) => `https://vidlink.org/embed/anime/${id}?episode=${e}&dub=true&quality=hd`
+            }
+        ]
+    };
+
+    function getAnimeServerPool() {
+        return animeDubMode ? ANIME_SERVERS.dub : ANIME_SERVERS.sub;
+    }
+
     function updateAnimeToggleButtons() {
         if (!btnSub || !btnDub) return;
         btnSub.classList.toggle('bg-white', !animeDubMode);
@@ -147,7 +178,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         btnDub.classList.toggle('text-zinc-300', !animeDubMode);
         if (playerSourceName) {
             const modeLabel = animeDubMode ? 'English Dub' : 'Japanese Sub';
-            const providerLabel = animeDubMode ? 'VidLink' : 'VidSrc Primary';
+            const providerLabel = getAnimeServerPool()[currentAnimeSourceIdx]?.label || 'Fallback';
             playerSourceName.textContent = `${modeLabel} • ${providerLabel}`;
         }
     }
@@ -185,11 +216,10 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         if (!id) return null;
         const s = Number(season) || 1;
         const e = Number(episode) || 1;
-        if (dub) {
-            return `https://vidlink.org/embed/anime/${id}?episode=${e}&dub=true`;
-        } else {
-            return `https://v2.vidsrc.me/embed/anime/${id}/${s}/${e}`;
-        }
+        const pool = dub ? ANIME_SERVERS.dub : ANIME_SERVERS.sub;
+        const current = pool[Math.min(currentAnimeSourceIdx, pool.length - 1)] || pool[0];
+        if (!current) return null;
+        return current.url(id, s, e);
     }
 
     const SERVER_FAILURES_KEY = 'adamstream_server_failures';
@@ -383,23 +413,39 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
 
     async function tryAnimeStreamWithServers(item, season, episode, playbackToken, loaderTimeout = 9000) {
         if (!item) return false;
-        const url = getAnimeEmbedUrl(item, season, episode, animeDubMode);
-        if (!url) return false;
+        const pool = getAnimeServerPool();
+        if (!pool || !pool.length) return false;
 
-        try {
-            if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
-            await loadIframeUrl(url, loaderTimeout);
-            updateAnimeToggleButtons();
-            if (playerTitle) {
-                playerTitle.textContent = `${item.title} - S${season} E${episode} (${animeDubMode ? 'Dub' : 'Sub'})`;
+        for (let idx = 0; idx < pool.length; idx++) {
+            currentAnimeSourceIdx = idx;
+            const server = pool[idx];
+            const id = item.tmdb_id || item.mal_id || item.id;
+            if (!id) continue;
+
+            const url = server.url(id, Number(season) || 1, Number(episode) || 1);
+            if (!url) continue;
+
+            try {
+                if (playerLoader) playerLoader.classList.remove('opacity-0', 'pointer-events-none');
+                if (playerSourceName) {
+                    playerSourceName.textContent = `${animeDubMode ? 'English Dub' : 'Japanese Sub'} • ${server.label}`;
+                }
+                await loadIframeUrl(url, loaderTimeout);
+                updateAnimeToggleButtons();
+                if (playerTitle) {
+                    playerTitle.textContent = `${item.title} - S${season} E${episode} (${animeDubMode ? 'Dub' : 'Sub'})`;
+                }
+                return true;
+            } catch (err) {
+                console.warn('Anime streaming failed on server:', server.label, err);
+            } finally {
+                hidePlayerLoader();
             }
-            return true;
-        } catch (err) {
-            console.warn('Anime streaming failed:', err);
-            return false;
-        } finally {
-            hidePlayerLoader();
         }
+
+        currentAnimeSourceIdx = 0;
+        updateAnimeToggleButtons();
+        return false;
     }
 
     async function tryStreamWithServers(item, season, episode, playbackToken, loaderTimeout = 8000) {
