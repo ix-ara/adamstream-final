@@ -43,6 +43,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const playerSourceBadge = document.getElementById('player-source-badge');
     const playerSourceName = document.getElementById('player-source-name');
     const dubHint = document.getElementById('dub-hint');
+    const animeTopbar = document.getElementById('anime-topbar');
     const authUser = document.getElementById('auth-user');
     const authAvatar = document.getElementById('auth-avatar');
     const authName = document.getElementById('auth-name');
@@ -189,6 +190,9 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         if (animeToggleContainer) {
             animeToggleContainer.classList.toggle('hidden', !show);
             animeToggleContainer.classList.toggle('flex', show);
+        }
+        if (animeTopbar) {
+            animeTopbar.classList.toggle('hidden', !show);
         }
         if (btnSub) {
             btnSub.classList.toggle('hidden', !show);

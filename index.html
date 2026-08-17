@@ -247,6 +247,12 @@
             padding: 0.25rem 0.5rem;
         }
 
+        #anime-topbar {
+            background: rgba(14, 15, 18, 0.88);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+        }
+
         #anime-episode-panel {
             border-radius: 18px;
             background: rgba(17, 17, 17, 0.82);
@@ -879,6 +885,33 @@
                 class="material-symbols-outlined text-2xl group-hover:-translate-x-1 transition-transform">arrow_back</span>
             Back to Browse
         </button>
+
+        <div id="anime-topbar"
+            class="absolute inset-x-0 top-0 z-[309] flex items-center justify-between gap-3 px-4 py-3 bg-[#17181d]/90 border-b border-white/10 backdrop-blur-sm">
+            <div class="flex items-center gap-3">
+                <button id="anime-mobile-back"
+                    class="material-symbols-outlined text-xl text-white/90 hover:text-white transition-colors">arrow_back</button>
+                <div class="flex items-center gap-2">
+                    <span class="text-xl font-black tracking-tight text-white">SUGE</span>
+                    <span class="text-xl font-black tracking-tight text-netflix-red">Anime</span>
+                </div>
+            </div>
+            <div class="flex-1 flex justify-center px-2">
+                <div class="flex items-center w-full max-w-xl overflow-hidden rounded-xl border border-white/10 bg-[#23262d]/90 shadow-inner">
+                    <span class="material-symbols-outlined text-white/60 text-lg px-3">search</span>
+                    <input type="text" placeholder="Search anime..."
+                        class="w-full bg-transparent text-sm text-white placeholder:text-zinc-400 outline-none py-2.5 pr-3"
+                        aria-label="Search anime">
+                    <button class="bg-[#1c65ff] hover:bg-[#3b7bff] text-white text-xs font-black uppercase tracking-wider px-3 py-2 rounded-r-lg transition-colors">
+                        Filter
+                    </button>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button class="material-symbols-outlined text-xl text-white/80 hover:text-white transition-colors">close</button>
+                <button class="bg-[#2b66ff] text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-[#3d7dff] transition-colors">Login</button>
+            </div>
+        </div>
 
         <!-- Player Preview Controls -->
         <div id="player-episode-selector"
