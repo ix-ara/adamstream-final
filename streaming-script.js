@@ -42,7 +42,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const playerSourceBadge = document.getElementById('player-source-badge');
     const playerSourceName = document.getElementById('player-source-name');
     const dubHint = document.getElementById('dub-hint');
-    const googleLoginBtn = document.getElementById('google-login-btn');
     const authUser = document.getElementById('auth-user');
     const authAvatar = document.getElementById('auth-avatar');
     const authName = document.getElementById('auth-name');
@@ -831,7 +830,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             localStorage.removeItem('adamstream_google_profile');
         }
 
-        if (googleLoginBtn) googleLoginBtn.classList.toggle('hidden', !!profile);
         if (authUser) {
             authUser.classList.toggle('hidden', !profile);
             authUser.classList.toggle('flex', !!profile);
@@ -889,14 +887,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     function initAuth() {
         const savedProfile = JSON.parse(localStorage.getItem('adamstream_google_profile') || 'null');
         setAuthProfile(savedProfile);
-
-        if (googleLoginBtn) {
-            googleLoginBtn.onclick = () => {
-                if (ensureGoogleAuth()) {
-                    googleTokenClient.requestAccessToken({ prompt: 'select_account' });
-                }
-            };
-        }
 
         if (authLogout) {
             authLogout.onclick = () => {
@@ -1431,7 +1421,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     }
 
     if (btnDub) {
-        btnDub.onclick = () => {
+        btnDub.addEventListener('click', () => {
             if (!currentPlayingItem?.isAnime) return;
             animeDubMode = true;
             animeSourceFailCount = 0;
@@ -1443,7 +1433,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             }
             const position = getCurrentPlaybackPosition();
             playMedia(currentPlayingItem, position.season, position.episode);
-        };
+        });
     }
 
     if (btnNextSource) {
