@@ -799,7 +799,7 @@
 
 <body class="selection:bg-netflix-red/30 overflow-x-hidden">
     <!-- App Initialization Loader -->
-    <div id="app-loader">
+    <div id="app-loader" class="hidden" aria-hidden="true">
         <h1 class="text-3xl font-black tracking-tighter text-netflix-red mb-8 animate-pulse">AdamStream</h1>
         <div class="loader-bar">
             <div class="loader-progress"></div>
@@ -807,6 +807,16 @@
         <p class="mt-4 text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em]">Curating your shelf
         </p>
     </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', function () {
+            var loader = document.getElementById('app-loader');
+            if (loader) {
+                loader.classList.add('hidden');
+                loader.setAttribute('aria-hidden', 'true');
+            }
+        });
+    </script>
 
     <div class="grain-overlay"></div>
 

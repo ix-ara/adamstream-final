@@ -2087,9 +2087,17 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         if (row) contentRows.appendChild(row);
     }
 
+    function hideAppLoader() {
+        if (appLoader) {
+            appLoader.classList.add('hidden');
+            appLoader.setAttribute('aria-hidden', 'true');
+        }
+    }
+
     function init() {
         if (isInitialized) return;
         isInitialized = true;
+        hideAppLoader();
         initAuth();
 
         // Initialize hero particles and parallax
@@ -2099,19 +2107,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         if (!TMDB_API_KEY) {
             showApiKeyModal();
         }
-
-        // Safety Timeout: Force hide the loader or show delay message if hung
-        setTimeout(() => {
-            if (appLoader) {
-                appLoader.classList.add('hidden');
-            }
-            // If we're still on the logo, show some feedback unconditionally after timeout
-            if (heroTitle && heroTitle.textContent === 'LOADING CONTENT') {
-                heroTitle.textContent = 'LIBRARY CONNECTION DELAY';
-                if (heroDesc) heroDesc.textContent = 'We are having trouble connecting to the title database. Try loading the catalog again.';
-                if (heroSetup) heroSetup.classList.remove('hidden');
-            }
-        }, 8000);
 
         if (playerSubBtn) {
             playerSubBtn.onclick = () => {
