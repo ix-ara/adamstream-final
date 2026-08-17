@@ -206,8 +206,12 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             playerSourceBadge.classList.toggle('flex', show);
         }
         if (playerServerControls) {
-            playerServerControls.classList.toggle('hidden', show);
-            playerServerControls.classList.toggle('flex', !show);
+            playerServerControls.classList.toggle('hidden', !show);
+            playerServerControls.classList.toggle('flex', show);
+        }
+        if (playerSubBtn) {
+            playerSubBtn.classList.toggle('hidden', !show || animeDubMode);
+            playerSubBtn.classList.toggle('flex', show && !animeDubMode);
         }
     }
 
@@ -305,6 +309,105 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             btn.classList.toggle('text-white', active);
             btn.classList.toggle('bg-zinc-800', !active);
             btn.classList.toggle('text-zinc-400', !active);
+        });
+    }
+
+    function buildAnimeServerButtons() {
+        if (!playerServerControls) return;
+
+        const serverButtons = [
+            { key: 'sub_vidsrc_primary', label: 'SUB: 1', mode: 'sub', index: 0 },
+            { key: 'sub_vidsrc_backup', label: 'SUB: 2', mode: 'sub', index: 1 },
+            { key: 'dub_vidlink_primary', label: 'DUB: 1', mode: 'dub', index: 0 },
+            { key: 'dub_vidlink_backup', label: 'DUB: 2', mode: 'dub', index: 1 }
+        ];
+
+        playerServerControls.innerHTML = `
+            <div class="flex items-center gap-2 flex-wrap justify-center">
+                <span class="text-zinc-500 text-[10px] font-black uppercase tracking-widest mr-1">Server</span>
+                ${serverButtons.map((server) => {
+                    const active = (animeDubMode && server.mode === 'dub') || (!animeDubMode && server.mode === 'sub');
+                    const selected = active && currentAnimeSourceIdx === server.index;
+                    return `
+                        <button
+                            class="server-btn text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full transition-all border ${selected ? 'bg-netflix-red text-white border-netflix-red' : 'bg-zinc-800/80 text-zinc-300 border-white/10 hover:text-white'}"
+                            data-server="${server.key}"
+                            data-mode="${server.mode}"
+                            data-index="${server.index}"
+                            type="button"
+                        >${server.label}</button>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        playerServerControls.querySelectorAll('.server-btn').forEach(btn => {
+            btn.onclick = () => {
+                const mode = btn.getAttribute('data-mode');
+                const index = Number(btn.getAttribute('data-index') || 0);
+                if (!mode) return;
+                animeDubMode = mode === 'dub';
+                currentAnimeSourceIdx = index;
+                updateAnimeToggleButtons();
+                if (playerSourceName) {
+                    const label = animeDubMode ? 'English Dub' : 'Japanese Sub';
+                    const serverLabel = getAnimeServerPool()[currentAnimeSourceIdx]?.label || 'Server';
+                    playerSourceName.textContent = `${label} • ${serverLabel}`;
+                }
+                if (currentPlayingItem?.isAnime) {
+                    const position = getCurrentPlaybackPosition();
+                    playMedia(currentPlayingItem, position.season, position.episode);
+                }
+            };
+        });
+    }
+
+    function buildAnimeEpisodePanel(item) {
+        const panel = document.getElementById('anime-episode-panel');
+        const list = document.getElementById('anime-episode-list');
+        const seasonLabel = document.getElementById('anime-season-label');
+        if (!panel || !list || !item || !item.isAnime) {
+            if (panel) panel.classList.add('hidden');
+            return;
+        }
+
+        const currentSeason = playerSeasonSelect ? Number(playerSeasonSelect.value) || 1 : 1;
+        const seasonEpisodes = currentAnimeMap.filter(ep => ep.season === currentSeason);
+
+        if (seasonLabel) seasonLabel.textContent = `S${currentSeason}`;
+        list.innerHTML = seasonEpisodes.map(ep => {
+            const selected = Number(playerEpisodeSelect?.value || 1) === ep.episode;
+            return `
+                <button
+                    type="button"
+                    class="anime-episode-item flex w-full items-center justify-between border-b border-white/5 px-3 py-2 text-left text-sm transition-all ${selected ? 'bg-white/10 text-white' : 'text-zinc-300 hover:bg-white/5 hover:text-white'}"
+                    data-season="${ep.season}"
+                    data-episode="${ep.episode}"
+                >
+                    <span class="inline-flex items-center gap-2">
+                        <span class="text-[10px] font-bold text-zinc-500">${String(ep.episode).padStart(2, '0')}</span>
+                        <span>Episode ${ep.episode}</span>
+                    </span>
+                    ${selected ? '<span class="material-symbols-outlined text-sm text-netflix-red">play_arrow</span>' : ''}
+                </button>
+            `;
+        }).join('') || '<div class="px-3 py-4 text-xs text-zinc-500">No episodes found</div>';
+
+        panel.classList.remove('hidden');
+
+        list.querySelectorAll('.anime-episode-item').forEach(button => {
+            button.onclick = () => {
+                const season = Number(button.dataset.season || 1);
+                const episode = Number(button.dataset.episode || 1);
+                const selectedSeason = playerSeasonSelect ? Number(playerSeasonSelect.value) || season : season;
+                if (playerEpisodeSelect) {
+                    playerEpisodeSelect.value = String(episode);
+                }
+                if (playerSeasonSelect) {
+                    playerSeasonSelect.value = String(selectedSeason);
+                }
+                playMedia(item, season, episode);
+            };
         });
     }
 
@@ -1383,6 +1486,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         currentPlayingItem = item;
         setAnimePlayerUiVisible(!!item.isAnime);
         if (item.isAnime) {
+            buildAnimeServerButtons();
             updateAnimeToggleButtons();
         }
 
@@ -1397,6 +1501,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             populatePlayerSelectors(selectedSeason, selectedEpisode);
             season = selectedSeason;
             episode = selectedEpisode;
+            buildAnimeEpisodePanel(item);
 
             if (playerEpisodeControls) {
                 playerEpisodeControls.classList.remove('hidden');

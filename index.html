@@ -904,6 +904,15 @@
                     <button id="btn-dub" class="hidden items-center bg-zinc-900/80 text-zinc-300 text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-300 hover:scale-105 border border-white/10">English Dub</button>
                 </div>
 
+                <div id="anime-episode-panel"
+                    class="absolute left-5 top-16 z-[310] hidden w-56 max-h-[68vh] overflow-hidden rounded-2xl border border-white/10 bg-black/75 backdrop-blur-md shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Episodes</span>
+                        <span id="anime-season-label" class="text-[10px] font-bold text-zinc-200">S1</span>
+                    </div>
+                    <div id="anime-episode-list" class="max-h-[60vh] overflow-y-auto no-scrollbar"></div>
+                </div>
+
                 <iframe id="streaming-player" class="w-full h-full border-0 bg-black relative z-0"
                     allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen="true"
                     webkitallowfullscreen="true" mozallowfullscreen="true" referrerpolicy="origin"
