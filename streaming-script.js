@@ -2107,7 +2107,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         if (isInitialized) return;
         isInitialized = true;
         hideAppLoader();
-        initAuth();
+        // Auth disabled for local streaming UI
 
         // Initialize hero particles and parallax
         initParticles();
