@@ -342,6 +342,11 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
             </div>
         `;
 
+        const modeText = animeDubMode ? 'English Dub' : 'Japanese Sub';
+        if (playerSourceName) {
+            playerSourceName.textContent = `${modeText} • ${getAnimeServerPool()[currentAnimeSourceIdx]?.label || 'Server'}`;
+        }
+
         playerServerControls.querySelectorAll('.server-btn').forEach(btn => {
             btn.onclick = () => {
                 const mode = btn.getAttribute('data-mode');
