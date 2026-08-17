@@ -9,7 +9,6 @@
     <link rel="preconnect" href="https://image.tmdb.org">
     <link rel="preconnect" href="https://api.jikan.moe">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
@@ -251,6 +250,71 @@
             background: rgba(14, 15, 18, 0.88);
             border-bottom: 1px solid rgba(255,255,255,0.08);
             box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+        }
+
+        .anime-page-shell {
+            background: #0f1015;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+        }
+
+        .anime-main-column {
+            background: #0f1015;
+        }
+
+        .anime-detail-panel {
+            background: #161821;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+        }
+
+        .anime-side-panel {
+            background: #161821;
+            border-left: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .anime-episode-btn {
+            background: #1f222e;
+            border: 1px solid rgba(255,255,255,0.05);
+            color: #f3f4f6;
+            transition: all 0.2s ease;
+        }
+
+        .anime-episode-btn.active {
+            background: #ffdd59;
+            color: #111827;
+            border-color: #ffdd59;
+        }
+
+        .anime-episode-btn:hover {
+            background: rgba(255, 221, 89, 0.14);
+            border-color: rgba(255, 221, 89, 0.4);
+        }
+
+        .anime-server-btn {
+            background: rgba(255,255,255,0.04);
+            color: #e5e7eb;
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.2s ease;
+        }
+
+        .anime-server-btn.active {
+            background: #ffdd59;
+            color: #101114;
+            border-color: #ffdd59;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: -0.06em;
+            color: #fff;
+        }
+
+        .logo span {
+            color: #ffdd59;
         }
 
         #anime-episode-panel {
@@ -748,19 +812,6 @@
             </button>
         </div>
 
-        <!-- Account -->
-        <div id="auth-actions" class="flex items-center gap-3 w-full md:w-auto justify-end">
-            <div id="auth-user"
-                class="hidden items-center gap-2 bg-white/10 border border-white/10 pl-2 pr-2 py-1.5">
-                <img id="auth-avatar"
-                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop"
-                    class="w-7 h-7 rounded-md object-cover" alt="Profile">
-                <span id="auth-name" class="text-xs font-bold text-zinc-100 max-w-[120px] truncate">Guest</span>
-                <button id="auth-logout" type="button"
-                    class="material-symbols-outlined text-zinc-400 hover:text-white transition-colors text-lg"
-                    aria-label="Sign out">logout</button>
-            </div>
-        </div>
     </nav>
 
     <main>
@@ -891,9 +942,8 @@
             <div class="flex items-center gap-3">
                 <button id="anime-mobile-back"
                     class="material-symbols-outlined text-xl text-white/90 hover:text-white transition-colors">arrow_back</button>
-                <div class="flex items-center gap-2">
-                    <span class="text-xl font-black tracking-tight text-white">SUGE</span>
-                    <span class="text-xl font-black tracking-tight text-netflix-red">Anime</span>
+                <div class="logo flex items-center gap-1">
+                    <span>Adam</span><span>Stream</span>
                 </div>
             </div>
             <div class="flex-1 flex justify-center px-2">
@@ -909,7 +959,6 @@
             </div>
             <div class="flex items-center gap-3">
                 <button class="material-symbols-outlined text-xl text-white/80 hover:text-white transition-colors">close</button>
-                <button class="bg-[#2b66ff] text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-[#3d7dff] transition-colors">Login</button>
             </div>
         </div>
 
@@ -995,6 +1044,16 @@
 
             <!-- Real Video Player API -->
             <div id="player-container" class="w-full h-full relative z-0">
+                <video id="anime-subtitle-video"
+                    class="hidden w-full h-full object-cover bg-black"
+                    crossorigin="anonymous"
+                    controls
+                    playsinline
+                    preload="metadata">
+                    <source src="" />
+                    <track label="English SUB" kind="subtitles" srclang="en" src="subtitle.vtt" default />
+                </video>
+
                 <!-- Anime Sub/Dub Toggle Component (State Manager) -->
                 <div id="anime-toggle-container"
                     class="absolute top-10 right-10 z-[310] hidden items-center gap-2 bg-black/60 px-2 py-1.5 rounded-full backdrop-blur-md border border-white/10">

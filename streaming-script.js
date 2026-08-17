@@ -44,10 +44,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const playerSourceName = document.getElementById('player-source-name');
     const dubHint = document.getElementById('dub-hint');
     const animeTopbar = document.getElementById('anime-topbar');
-    const authUser = document.getElementById('auth-user');
-    const authAvatar = document.getElementById('auth-avatar');
-    const authName = document.getElementById('auth-name');
-    const authLogout = document.getElementById('auth-logout');
 
     // UI Panels Let
     const profileScreen = document.getElementById('profile-screen');
@@ -112,7 +108,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     let playerHelpTimer = null;
     let currentPlaybackToken = 0;
     const trailerCache = {};
-    const GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
     // When true the player will prefer official trailers/previews instead of
     // loading third-party embed players that frequently return "Video Not Found".
     // Default to true to avoid showing raw 404 pages from unreliable embeds.
@@ -980,82 +975,6 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         setTimeout(() => {
             toast.classList.add('opacity-0', 'translate-y-10');
         }, 3600);
-    }
-
-    function setAuthProfile(profile) {
-        if (profile) {
-            localStorage.setItem('adamstream_google_profile', JSON.stringify(profile));
-        } else {
-            localStorage.removeItem('adamstream_google_profile');
-        }
-
-        if (authUser) {
-            authUser.classList.toggle('hidden', !profile);
-            authUser.classList.toggle('flex', !!profile);
-        }
-        if (profile && authName) authName.textContent = profile.name || 'Google user';
-        if (profile && authAvatar) authAvatar.src = profile.picture || authAvatar.src;
-    }
-
-    async function handleGoogleToken(response) {
-        try {
-            if (!response || response.error || !response.access_token) {
-                throw new Error(response?.error || 'Missing Google access token');
-            }
-            const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${response.access_token}` }
-            });
-            if (!profileResponse.ok) throw new Error('Google profile request failed');
-            const profile = await profileResponse.json();
-            setAuthProfile({
-                name: profile.name || profile.email || 'Google user',
-                email: profile.email || '',
-                picture: profile.picture || ''
-            });
-            showToast('Signed in with Google');
-        } catch (error) {
-            showToast('Google sign-in could not finish.', false);
-        }
-    }
-
-    let googleTokenClient = null;
-
-    function hasGoogleClientId() {
-        return GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('PASTE_GOOGLE_CLIENT_ID');
-    }
-
-    function ensureGoogleAuth() {
-        if (!hasGoogleClientId()) {
-            showToast('Add your Google Client ID in streaming-script.js first.', false);
-            return false;
-        }
-        if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
-            showToast('Google sign-in is still loading. Try again in a moment.', false);
-            return false;
-        }
-        if (!googleTokenClient) {
-            googleTokenClient = window.google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: 'openid email profile',
-                callback: handleGoogleToken
-            });
-        }
-        return true;
-    }
-
-    function initAuth() {
-        const savedProfile = JSON.parse(localStorage.getItem('adamstream_google_profile') || 'null');
-        setAuthProfile(savedProfile);
-
-        if (authLogout) {
-            authLogout.onclick = () => {
-                if (window.google && window.google.accounts && window.google.accounts.id) {
-                    window.google.accounts.id.disableAutoSelect();
-                }
-                setAuthProfile(null);
-                showToast('Signed out');
-            };
-        }
     }
 
     function showApiKeyModal(error = false) {
