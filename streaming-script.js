@@ -818,11 +818,11 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         scrollContainer.style.minHeight = '320px';
 
         const leftBtn   = document.createElement('button');
-        leftBtn.className = 'absolute left-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-r-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
+        leftBtn.className = 'absolute left-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-r-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
         leftBtn.innerHTML = '<span class="material-symbols-outlined text-4xl">chevron_left</span>';
 
         const rightBtn  = document.createElement('button');
-        rightBtn.className = 'absolute right-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-l-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
+        rightBtn.className = 'absolute right-0 top-[45%] -translate-y-1/2 z-40 bg-black/60 text-white p-2 rounded-l-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all hover:bg-black/90 hover:scale-110 hidden md:flex items-center justify-center border border-white/5';
         rightBtn.innerHTML = '<span class="material-symbols-outlined text-4xl">chevron_right</span>';
 
         leftBtn.onclick  = e => { e.stopPropagation(); scrollContainer.scrollBy({ left: -window.innerWidth * 0.7, behavior: 'smooth' }); };

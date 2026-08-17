@@ -352,8 +352,8 @@
             .movie-card { width: 110px !important; margin: 0 8px !important; }
             .movie-card img { border-radius: 8px; }
 
-            /* Collapse additional rows to reduce crowding */
-            #content-rows:not(.expanded) > div:nth-child(n+4) { display: none !important; }
+            /* Collapse additional rows to reduce crowding — REMOVED: was hiding most content rows */
+            /* #content-rows:not(.expanded) > div:nth-child(n+4) { display: none !important; } */
 
             /* Add subtle pop for visible rows */
             #content-rows > div.visible { transform: translateY(0); opacity: 1; }
@@ -544,8 +544,8 @@
             transition: all 0.4s ease;
         }
 
-        /* Unique homepage redesign visuals */
-        #hero { overflow: visible; position: relative; }
+        /* #hero overflow consolidated — do NOT use overflow:visible here as it causes hero to spill over cards */
+        #hero { perspective: 1200px; position: relative; overflow: hidden; }
         #hero-canvas {
             position: absolute;
             inset: 0;
@@ -636,10 +636,14 @@
             border-radius: 8px !important;
             box-shadow: 0 16px 35px rgba(0, 0, 0, 0.28);
             outline: 1px solid rgba(248, 243, 232, 0.08);
+            pointer-events: auto !important;  /* guarantee cards are always clickable */
+            position: relative;
+            z-index: 1;
         }
 
         .movie-card:hover {
             transform: translateY(-8px) scale(1.035) !important;
+            z-index: 30;
         }
 
         #modal-content,
@@ -710,8 +714,8 @@
 
     <!-- Premium Navigation -->
     <nav id="main-nav"
-        class="fixed top-0 w-full z-[100] px-4 md:px-12 py-3 md:py-4 flex flex-col md:flex-row items-start md:items-center justify-between transition-all duration-500 bg-transparent gap-3 md:gap-0">
-        <div class="flex items-center justify-between w-full md:w-auto gap-4">
+        class="fixed top-0 w-full z-[100] px-4 md:px-12 py-2 md:py-4 flex flex-row flex-wrap items-center justify-between transition-all duration-500 bg-transparent gap-2 md:gap-0">
+        <div class="flex items-center gap-4">
             <h1 id="nav-logo"
                 class="text-2xl md:text-3xl font-black tracking-tighter text-netflix-red cursor-pointer hover:scale-105 transition-transform shrink-0">
                 AdamStream</h1>
@@ -748,7 +752,7 @@
     <main>
         <!-- Dynamic Hero Section -->
         <section id="hero"
-            class="relative min-h-[85vh] w-full flex flex-col justify-center items-start px-4 md:px-12 pb-32 overflow-hidden">
+            class="relative min-h-[55vh] md:min-h-[80vh] w-full flex flex-col justify-center items-start px-4 md:px-12 pb-16 md:pb-32 overflow-hidden">
             <div class="absolute inset-0 z-0">
                 <img id="hero-bg"
                     src="https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2000&auto=format&fit=crop"
@@ -989,9 +993,9 @@
         </div>
     </div>
 
-    <!-- Network Status -->
+    <!-- Network Status (pointer-events:none so it never blocks clicks) -->
     <div id="network-status"
-        class="fixed bottom-10 right-10 z-[500] px-6 py-3 rounded-full text-sm font-bold shadow-2xl opacity-0 translate-y-10 transition-all duration-500 bg-emerald-600 text-white">
+        class="fixed bottom-10 right-10 z-[500] px-6 py-3 rounded-full text-sm font-bold shadow-2xl opacity-0 translate-y-10 transition-all duration-500 bg-emerald-600 text-white pointer-events-none">
         Online: connected to internet
     </div>
 
