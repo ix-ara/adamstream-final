@@ -39,6 +39,7 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
     const btnSub = document.getElementById('btn-sub');
     const btnDub = document.getElementById('btn-dub');
     const btnNextSource = document.getElementById('btn-next-source');
+    const animePlayBtn = document.getElementById('anime-play-btn');
     const playerSourceBadge = document.getElementById('player-source-badge');
     const playerSourceName = document.getElementById('player-source-name');
     const dubHint = document.getElementById('dub-hint');
@@ -354,9 +355,9 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
                     const serverLabel = getAnimeServerPool()[currentAnimeSourceIdx]?.label || 'Server';
                     playerSourceName.textContent = `${label} • ${serverLabel}`;
                 }
-                if (currentPlayingItem?.isAnime) {
-                    const position = getCurrentPlaybackPosition();
-                    playMedia(currentPlayingItem, position.season, position.episode);
+                if (animePlayBtn) {
+                    animePlayBtn.classList.remove('hidden');
+                    animePlayBtn.classList.add('flex');
                 }
             };
         });
@@ -1460,13 +1461,36 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
         updateEpisodes(currentS || 1, true);
 
         playerSeasonSelect.onchange = (e) => {
-            updateEpisodes(Number(e.target.value), false);
-            playMedia(currentPlayingItem, Number(e.target.value), 1);
+            const nextSeason = Number(e.target.value || 1);
+            updateEpisodes(nextSeason, false);
+            if (currentPlayingItem?.isAnime) {
+                const nextEpisode = Number(playerEpisodeSelect?.value || 1);
+                if (playerEpisodeSelect) playerEpisodeSelect.value = String(nextEpisode);
+                buildAnimeEpisodePanel(currentPlayingItem);
+            }
         };
 
         playerEpisodeSelect.onchange = (e) => {
-            playMedia(currentPlayingItem, Number(playerSeasonSelect.value), Number(e.target.value));
+            if (currentPlayingItem?.isAnime) {
+                const nextEpisode = Number(e.target.value || 1);
+                if (playerEpisodeSelect) playerEpisodeSelect.value = String(nextEpisode);
+                buildAnimeEpisodePanel(currentPlayingItem);
+            }
         };
+    }
+
+    async function launchAnimePlayback(item, season, episode, playbackToken) {
+        const success = await tryAnimeStreamWithServers(item, season, episode, playbackToken, 9000);
+        if (playbackToken !== currentPlaybackToken) return;
+        if (!success) {
+            showPlayerError();
+        } else {
+            playerIframe.onerror = showPlayerError;
+        }
+        schedulePlayerHelp(item, playbackToken);
+        setTimeout(() => {
+            if (playbackToken === currentPlaybackToken && playerTitleOverlay) playerTitleOverlay.classList.add('opacity-0');
+        }, 5000);
     }
 
     async function playMedia(item, season = null, episode = null) {
@@ -1507,18 +1531,18 @@ let TMDB_API_KEY = localStorage.getItem('tmdb_api_key') || '1a514146c79d17c349b6
                 playerEpisodeControls.classList.remove('hidden');
                 playerEpisodeControls.classList.add('flex');
             }
-
-            const success = await tryAnimeStreamWithServers(item, season, episode, playbackToken, 9000);
-            if (playbackToken !== currentPlaybackToken) return;
-            if (!success) {
-                showPlayerError();
-            } else {
-                playerIframe.onerror = showPlayerError;
+            if (animePlayBtn) {
+                animePlayBtn.classList.remove('hidden');
+                animePlayBtn.classList.add('flex');
+                animePlayBtn.onclick = () => {
+                    if (!currentPlayingItem?.isAnime) return;
+                    const activeSeason = Number(playerSeasonSelect?.value || season || 1);
+                    const activeEpisode = Number(playerEpisodeSelect?.value || episode || 1);
+                    if (playerTitle) playerTitle.textContent = `${currentPlayingItem.title} - Loading...`;
+                    launchAnimePlayback(currentPlayingItem, activeSeason, activeEpisode, ++currentPlaybackToken);
+                };
             }
-            schedulePlayerHelp(item, playbackToken);
-            setTimeout(() => {
-                if (playbackToken === currentPlaybackToken && playerTitleOverlay) playerTitleOverlay.classList.add('opacity-0');
-            }, 5000);
+
             return;
         }
 
